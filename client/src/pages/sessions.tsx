@@ -290,7 +290,7 @@ export default function SessionsPage() {
                 })()}
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="notes">Clinical Notes</Label>
+                <Label htmlFor="notes">Billing Notes</Label>
                 <Textarea 
                   id="notes" 
                   value={sessionNotes} 
