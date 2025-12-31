@@ -37,6 +37,7 @@ export default function SessionsPage() {
   const [selectedBillingType, setSelectedBillingType] = useState<BillingType>("medical_aid");
   const [sessionDate, setSessionDate] = useState(format(new Date(), "yyyy-MM-dd"));
   const [sessionTime, setSessionTime] = useState("09:00");
+  const [timeNotApplicable, setTimeNotApplicable] = useState(false);
   const [sessionNotes, setSessionNotes] = useState("");
   const [discountPercent, setDiscountPercent] = useState<number>(0);
 
@@ -66,7 +67,7 @@ export default function SessionsPage() {
       billingCodeId: code.id,
       billingType: selectedBillingType,
       date: sessionDate,
-      time: sessionTime,
+      time: timeNotApplicable ? 'N/A' : sessionTime,
       status: 'captured',
       notes: sessionNotes || null,
       discountPercent: (selectedBillingType === 'private' || selectedBillingType === 'private_cash') ? discountPercent : 0
@@ -78,6 +79,8 @@ export default function SessionsPage() {
         setSessionNotes("");
         setSelectedBillingType("medical_aid");
         setDiscountPercent(0);
+        setTimeNotApplicable(false);
+        setSessionTime("09:00");
         
         toast({
           title: "Session Captured",
@@ -162,8 +165,22 @@ export default function SessionsPage() {
                     type="time" 
                     value={sessionTime} 
                     onChange={(e) => setSessionTime(e.target.value)}
+                    disabled={timeNotApplicable}
                     data-testid="input-time"
                   />
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="time-na"
+                      checked={timeNotApplicable}
+                      onChange={(e) => setTimeNotApplicable(e.target.checked)}
+                      className="h-4 w-4 rounded border-gray-300"
+                      data-testid="checkbox-time-na"
+                    />
+                    <Label htmlFor="time-na" className="text-sm font-normal text-muted-foreground cursor-pointer">
+                      N/A (monthly package)
+                    </Label>
+                  </div>
                 </div>
               </div>
               <div className="grid gap-2">
