@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
-import { useCreateSession, useSessions, usePatients, useBillingCodesByType, useUsers, BillingType } from "@/lib/api";
+import { useCreateSession, useSessions, usePatients, useBillingCodesByType, useUsers, useFinancialPeriods, BillingType } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -25,10 +25,12 @@ export default function SessionsPage() {
   const { data: sessions = [], isLoading } = useSessions();
   const { data: patients = [] } = usePatients();
   const { data: users = [] } = useUsers();
+  const { data: financialPeriods = [] } = useFinancialPeriods();
   const createSessionMutation = useCreateSession();
   const { toast } = useToast();
   
   const [searchTerm, setSearchTerm] = useState("");
+  const [selectedPeriodFilter, setSelectedPeriodFilter] = useState<string>("all");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
   // Form State
@@ -99,10 +101,16 @@ export default function SessionsPage() {
     }
   };
 
-  const filteredSessions = sessions.filter(session => 
-    session.patientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    session.billingCodes.some(code => code.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
+  const filteredSessions = sessions.filter(session => {
+    const matchesSearch = session.patientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      session.billingCodes.some(code => code.toLowerCase().includes(searchTerm.toLowerCase()));
+    
+    const matchesPeriod = selectedPeriodFilter === "all" || 
+      (selectedPeriodFilter === "none" && !session.financialPeriodId) ||
+      session.financialPeriodId?.toString() === selectedPeriodFilter;
+    
+    return matchesSearch && matchesPeriod;
+  });
 
   if (isLoading) {
     return (
@@ -326,9 +334,19 @@ export default function SessionsPage() {
                   data-testid="input-search"
                 />
               </div>
-              <Button variant="outline" size="icon" className="h-9 w-9">
-                <Filter className="h-4 w-4" />
-              </Button>
+              <Select value={selectedPeriodFilter} onValueChange={setSelectedPeriodFilter}>
+                <SelectTrigger className="h-9 w-[180px]" data-testid="select-period-filter">
+                  <Filter className="h-4 w-4 mr-2" />
+                  <SelectValue placeholder="Financial Period" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Periods</SelectItem>
+                  <SelectItem value="none">No Period</SelectItem>
+                  {financialPeriods.map(p => (
+                    <SelectItem key={p.id} value={p.id.toString()}>{p.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
         </CardHeader>
@@ -342,6 +360,7 @@ export default function SessionsPage() {
                   <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Type</th>
                   <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Code</th>
                   <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Practitioner</th>
+                  <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Period</th>
                   <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Status</th>
                   <th className="h-12 px-4 text-right align-middle font-medium text-muted-foreground">Amount</th>
                 </tr>
@@ -377,6 +396,15 @@ export default function SessionsPage() {
                       </div>
                     </td>
                     <td className="p-4 align-middle text-muted-foreground">{session.practitionerName}</td>
+                    <td className="p-4 align-middle">
+                      {session.financialPeriod ? (
+                        <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold border-transparent bg-orange-100 text-orange-800">
+                          {session.financialPeriod}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">-</span>
+                      )}
+                    </td>
                     <td className="p-4 align-middle">
                       <span className={
                         session.status === 'paid' ? "text-green-600 font-medium" :

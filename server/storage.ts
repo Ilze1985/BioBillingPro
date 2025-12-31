@@ -3,6 +3,7 @@ import {
   patients,
   billingCodes,
   sessions,
+  financialPeriods,
   type User,
   type InsertUser,
   type Patient,
@@ -11,6 +12,8 @@ import {
   type InsertBillingCode,
   type Session,
   type InsertSession,
+  type FinancialPeriod,
+  type InsertFinancialPeriod,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc } from "drizzle-orm";
@@ -47,6 +50,13 @@ export interface IStorage {
   updateSession(id: number, data: Partial<InsertSession>): Promise<Session | undefined>;
   updateSessionStatus(id: number, status: 'captured' | 'invoiced' | 'paid'): Promise<Session | undefined>;
   deleteSession(id: number): Promise<boolean>;
+
+  // Financial Periods
+  getFinancialPeriod(id: number): Promise<FinancialPeriod | undefined>;
+  getAllFinancialPeriods(): Promise<FinancialPeriod[]>;
+  createFinancialPeriod(period: InsertFinancialPeriod): Promise<FinancialPeriod>;
+  updateFinancialPeriod(id: number, data: Partial<InsertFinancialPeriod>): Promise<FinancialPeriod | undefined>;
+  deleteFinancialPeriod(id: number): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -171,6 +181,31 @@ export class DatabaseStorage implements IStorage {
 
   async deleteSession(id: number): Promise<boolean> {
     await db.delete(sessions).where(eq(sessions.id, id));
+    return true;
+  }
+
+  // Financial Periods
+  async getFinancialPeriod(id: number): Promise<FinancialPeriod | undefined> {
+    const [period] = await db.select().from(financialPeriods).where(eq(financialPeriods.id, id));
+    return period || undefined;
+  }
+
+  async getAllFinancialPeriods(): Promise<FinancialPeriod[]> {
+    return await db.select().from(financialPeriods);
+  }
+
+  async createFinancialPeriod(insertPeriod: InsertFinancialPeriod): Promise<FinancialPeriod> {
+    const [period] = await db.insert(financialPeriods).values(insertPeriod).returning();
+    return period;
+  }
+
+  async updateFinancialPeriod(id: number, data: Partial<InsertFinancialPeriod>): Promise<FinancialPeriod | undefined> {
+    const [period] = await db.update(financialPeriods).set(data).where(eq(financialPeriods.id, id)).returning();
+    return period || undefined;
+  }
+
+  async deleteFinancialPeriod(id: number): Promise<boolean> {
+    await db.delete(financialPeriods).where(eq(financialPeriods.id, id));
     return true;
   }
 }

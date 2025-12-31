@@ -48,6 +48,15 @@ export interface EnrichedSession extends Session {
   billingCodes: string[];
   totalPrice: number;
   finalPrice: number;
+  financialPeriod: string | null;
+  financialPeriodId: number | null;
+}
+
+export interface FinancialPeriod {
+  id: number;
+  name: string;
+  startDate: string;
+  endDate: string;
 }
 
 // API Functions
@@ -193,6 +202,37 @@ async function updateSession(id: number, data: Partial<Session>): Promise<Sessio
 async function deleteSession(id: number): Promise<void> {
   const res = await fetch(`/api/sessions/${id}`, { method: 'DELETE' });
   if (!res.ok) throw new Error('Failed to delete session');
+}
+
+async function fetchFinancialPeriods(): Promise<FinancialPeriod[]> {
+  const res = await fetch('/api/financial-periods');
+  if (!res.ok) throw new Error('Failed to fetch financial periods');
+  return res.json();
+}
+
+async function createFinancialPeriod(period: Omit<FinancialPeriod, 'id'>): Promise<FinancialPeriod> {
+  const res = await fetch('/api/financial-periods', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(period)
+  });
+  if (!res.ok) throw new Error('Failed to create financial period');
+  return res.json();
+}
+
+async function updateFinancialPeriod(id: number, data: Partial<FinancialPeriod>): Promise<FinancialPeriod> {
+  const res = await fetch(`/api/financial-periods/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  });
+  if (!res.ok) throw new Error('Failed to update financial period');
+  return res.json();
+}
+
+async function deleteFinancialPeriod(id: number): Promise<void> {
+  const res = await fetch(`/api/financial-periods/${id}`, { method: 'DELETE' });
+  if (!res.ok) throw new Error('Failed to delete financial period');
 }
 
 // React Query Hooks
@@ -356,6 +396,46 @@ export function useDeleteSession() {
   return useMutation({
     mutationFn: deleteSession,
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['sessions'] });
+    },
+  });
+}
+
+export function useFinancialPeriods() {
+  return useQuery({
+    queryKey: ['financialPeriods'],
+    queryFn: fetchFinancialPeriods,
+  });
+}
+
+export function useCreateFinancialPeriod() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: createFinancialPeriod,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['financialPeriods'] });
+      queryClient.invalidateQueries({ queryKey: ['sessions'] });
+    },
+  });
+}
+
+export function useUpdateFinancialPeriod() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }: { id: number; data: Partial<FinancialPeriod> }) => updateFinancialPeriod(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['financialPeriods'] });
+      queryClient.invalidateQueries({ queryKey: ['sessions'] });
+    },
+  });
+}
+
+export function useDeleteFinancialPeriod() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: deleteFinancialPeriod,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['financialPeriods'] });
       queryClient.invalidateQueries({ queryKey: ['sessions'] });
     },
   });

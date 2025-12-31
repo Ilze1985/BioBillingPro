@@ -7,6 +7,13 @@ export const userRoleEnum = pgEnum('user_role', ['admin', 'practitioner']);
 export const sessionStatusEnum = pgEnum('session_status', ['captured', 'invoiced', 'paid']);
 export const billingTypeEnum = pgEnum('billing_type', ['medical_aid', 'private', 'private_cash']);
 
+export const financialPeriods = pgTable("financial_periods", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  startDate: text("start_date").notNull(),
+  endDate: text("end_date").notNull(),
+});
+
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
@@ -75,8 +82,9 @@ export const insertUserSchema = createInsertSchema(users).omit({ id: true });
 export const insertPatientSchema = createInsertSchema(patients).omit({ id: true });
 export const insertBillingCodeSchema = createInsertSchema(billingCodes).omit({ id: true });
 export const insertSessionSchema = createInsertSchema(sessions).omit({ id: true, createdAt: true }).extend({
-  discountPercent: z.number().min(0).max(100).optional().default(0)
+  discountPercent: z.number().min(0).optional().default(0)
 });
+export const insertFinancialPeriodSchema = createInsertSchema(financialPeriods).omit({ id: true });
 
 // Types
 export type User = typeof users.$inferSelect;
@@ -90,3 +98,6 @@ export type InsertBillingCode = z.infer<typeof insertBillingCodeSchema>;
 
 export type Session = typeof sessions.$inferSelect;
 export type InsertSession = z.infer<typeof insertSessionSchema>;
+
+export type FinancialPeriod = typeof financialPeriods.$inferSelect;
+export type InsertFinancialPeriod = z.infer<typeof insertFinancialPeriodSchema>;

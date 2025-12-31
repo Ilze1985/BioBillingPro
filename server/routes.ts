@@ -5,7 +5,8 @@ import {
   insertUserSchema, 
   insertPatientSchema, 
   insertBillingCodeSchema, 
-  insertSessionSchema 
+  insertSessionSchema,
+  insertFinancialPeriodSchema
 } from "@shared/schema";
 import { z } from "zod";
 import multer from "multer";
@@ -306,14 +307,61 @@ export async function registerRoutes(
     }
   });
 
+  // Financial Periods
+  app.get("/api/financial-periods", async (_req, res) => {
+    const periods = await storage.getAllFinancialPeriods();
+    res.json(periods);
+  });
+
+  app.post("/api/financial-periods", async (req, res) => {
+    try {
+      const periodData = insertFinancialPeriodSchema.parse(req.body);
+      const period = await storage.createFinancialPeriod(periodData);
+      res.status(201).json(period);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid period data", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to create financial period" });
+    }
+  });
+
+  app.patch("/api/financial-periods/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const periodData = insertFinancialPeriodSchema.partial().parse(req.body);
+      const period = await storage.updateFinancialPeriod(id, periodData);
+      if (!period) {
+        return res.status(404).json({ message: "Financial period not found" });
+      }
+      res.json(period);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid period data", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to update financial period" });
+    }
+  });
+
+  app.delete("/api/financial-periods/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await storage.deleteFinancialPeriod(id);
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete financial period" });
+    }
+  });
+
   // Sessions with related data (enriched for frontend)
   app.get("/api/sessions/enriched", async (_req, res) => {
     try {
-      const [sessions, users, patients, codes] = await Promise.all([
+      const [sessions, users, patients, codes, financialPeriods] = await Promise.all([
         storage.getAllSessions(),
         storage.getAllUsers(),
         storage.getAllPatients(),
-        storage.getAllBillingCodes()
+        storage.getAllBillingCodes(),
+        storage.getAllFinancialPeriods()
       ]);
 
       const enrichedSessions = sessions.map(session => {
@@ -324,6 +372,11 @@ export async function registerRoutes(
         const sessionCodes = (session.billingCodeIds || []).map(id => codes.find(c => c.id === id)).filter(Boolean);
         const billingCodeNames = sessionCodes.map(c => c?.code || 'Unknown');
         const totalPrice = sessionCodes.reduce((sum, c) => sum + (c?.price || 0), 0);
+        
+        // Find matching financial period based on session date
+        const matchingPeriod = financialPeriods.find(p => 
+          session.date >= p.startDate && session.date <= p.endDate
+        );
         
         // Calculate final price with discounts
         const additionalDiscount = session.discountPercent || 0; // Now stores R-value, not percentage
@@ -348,7 +401,9 @@ export async function registerRoutes(
           patientName: patient ? `${patient.firstName} ${patient.surname}` : 'Unknown',
           billingCodes: billingCodeNames,
           totalPrice: totalPrice,
-          finalPrice: finalPrice
+          finalPrice: finalPrice,
+          financialPeriod: matchingPeriod?.name || null,
+          financialPeriodId: matchingPeriod?.id || null
         };
       });
 

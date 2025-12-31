@@ -1,12 +1,12 @@
 import { useState, useRef } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { 
-  useSessions, useUsers, useBillingCodes, usePatients,
-  useDeleteUser, useDeletePatient, useDeleteBillingCode, useDeleteSession,
-  useUpdateUser, useUpdatePatient, useUpdateBillingCode,
-  useCreateUser, useCreatePatient, useCreateBillingCode,
+  useSessions, useUsers, useBillingCodes, usePatients, useFinancialPeriods,
+  useDeleteUser, useDeletePatient, useDeleteBillingCode, useDeleteSession, useDeleteFinancialPeriod,
+  useUpdateUser, useUpdatePatient, useUpdateBillingCode, useUpdateFinancialPeriod,
+  useCreateUser, useCreatePatient, useCreateBillingCode, useCreateFinancialPeriod,
   useImportBillingCodes,
-  type User, type Patient, type BillingCode, type BillingType
+  type User, type Patient, type BillingCode, type BillingType, type FinancialPeriod
 } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -41,17 +41,21 @@ export default function AdminPage() {
   const { data: users = [], isLoading: loadingUsers } = useUsers();
   const { data: billingCodes = [], isLoading: loadingCodes } = useBillingCodes();
   const { data: patients = [], isLoading: loadingPatients } = usePatients();
+  const { data: financialPeriods = [], isLoading: loadingPeriods } = useFinancialPeriods();
 
   const deleteUserMutation = useDeleteUser();
   const deletePatientMutation = useDeletePatient();
   const deleteBillingCodeMutation = useDeleteBillingCode();
   const deleteSessionMutation = useDeleteSession();
+  const deleteFinancialPeriodMutation = useDeleteFinancialPeriod();
   const updateUserMutation = useUpdateUser();
   const updatePatientMutation = useUpdatePatient();
   const updateBillingCodeMutation = useUpdateBillingCode();
+  const updateFinancialPeriodMutation = useUpdateFinancialPeriod();
   const createUserMutation = useCreateUser();
   const createPatientMutation = useCreatePatient();
   const createBillingCodeMutation = useCreateBillingCode();
+  const createFinancialPeriodMutation = useCreateFinancialPeriod();
   const importBillingCodesMutation = useImportBillingCodes();
 
   const { toast } = useToast();
@@ -61,13 +65,15 @@ export default function AdminPage() {
   const [editUserDialog, setEditUserDialog] = useState<User | null>(null);
   const [editPatientDialog, setEditPatientDialog] = useState<Patient | null>(null);
   const [editCodeDialog, setEditCodeDialog] = useState<BillingCode | null>(null);
+  const [editPeriodDialog, setEditPeriodDialog] = useState<FinancialPeriod | null>(null);
   const [newUserDialog, setNewUserDialog] = useState(false);
   const [newPatientDialog, setNewPatientDialog] = useState(false);
   const [newCodeDialog, setNewCodeDialog] = useState(false);
+  const [newPeriodDialog, setNewPeriodDialog] = useState(false);
 
   const [formData, setFormData] = useState<Record<string, string>>({});
 
-  const isLoading = loadingSessions || loadingUsers || loadingCodes || loadingPatients;
+  const isLoading = loadingSessions || loadingUsers || loadingCodes || loadingPatients || loadingPeriods;
 
   const handleDelete = async () => {
     if (!deleteDialog) return;
@@ -80,6 +86,8 @@ export default function AdminPage() {
         await deleteBillingCodeMutation.mutateAsync(deleteDialog.id);
       } else if (deleteDialog.type === 'session') {
         await deleteSessionMutation.mutateAsync(deleteDialog.id);
+      } else if (deleteDialog.type === 'period') {
+        await deleteFinancialPeriodMutation.mutateAsync(deleteDialog.id);
       }
       toast({ title: "Deleted", description: `${deleteDialog.name} has been deleted.` });
     } catch {
@@ -194,6 +202,39 @@ export default function AdminPage() {
     }
   };
 
+  const handleUpdatePeriod = async () => {
+    if (!editPeriodDialog) return;
+    try {
+      await updateFinancialPeriodMutation.mutateAsync({
+        id: editPeriodDialog.id,
+        data: { 
+          name: formData.name,
+          startDate: formData.startDate,
+          endDate: formData.endDate
+        }
+      });
+      toast({ title: "Updated", description: "Financial period has been updated." });
+      setEditPeriodDialog(null);
+    } catch {
+      toast({ title: "Error", description: "Failed to update financial period.", variant: "destructive" });
+    }
+  };
+
+  const handleCreatePeriod = async () => {
+    try {
+      await createFinancialPeriodMutation.mutateAsync({
+        name: formData.name,
+        startDate: formData.startDate,
+        endDate: formData.endDate
+      });
+      toast({ title: "Created", description: "Financial period has been created." });
+      setNewPeriodDialog(false);
+      setFormData({});
+    } catch {
+      toast({ title: "Error", description: "Failed to create financial period.", variant: "destructive" });
+    }
+  };
+
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -248,6 +289,7 @@ export default function AdminPage() {
           <TabsTrigger value="patients" data-testid="tab-patients">Patients</TabsTrigger>
           <TabsTrigger value="staff" data-testid="tab-staff">Staff</TabsTrigger>
           <TabsTrigger value="codes" data-testid="tab-codes">Billing Codes</TabsTrigger>
+          <TabsTrigger value="periods" data-testid="tab-periods">Financial Periods</TabsTrigger>
         </TabsList>
         
         <TabsContent value="all-sessions" className="space-y-4">
@@ -292,8 +334,8 @@ export default function AdminPage() {
                           </span>
                         </td>
                         <td className="p-4 align-middle">{session.practitionerName}</td>
-                        <td className="p-4 align-middle">{session.billingCode}</td>
-                        <td className="p-4 align-middle text-right">R {session.price}</td>
+                        <td className="p-4 align-middle">{session.billingCodes.join(', ')}</td>
+                        <td className="p-4 align-middle text-right">R {session.finalPrice}</td>
                         <td className="p-4 align-middle text-right capitalize">{session.status}</td>
                         <td className="p-4 align-middle text-right">
                           <Button 
@@ -559,6 +601,71 @@ export default function AdminPage() {
                             className="h-8 w-8 text-destructive hover:text-destructive"
                             onClick={() => setDeleteDialog({ type: 'code', id: code.id, name: code.code })}
                             data-testid={`button-delete-code-${code.id}`}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="periods" className="space-y-4">
+          <Card className="shadow-sm">
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle>Financial Periods</CardTitle>
+                <CardDescription>Define financial periods for reporting and filtering.</CardDescription>
+              </div>
+              <Button className="gap-2" onClick={() => { setFormData({}); setNewPeriodDialog(true); }} data-testid="button-add-period">
+                <Plus className="h-4 w-4" />
+                Add Period
+              </Button>
+            </CardHeader>
+            <CardContent>
+              <div className="rounded-md border">
+                <table className="w-full caption-bottom text-sm">
+                  <thead className="[&_tr]:border-b">
+                    <tr className="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted">
+                      <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Name</th>
+                      <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Start Date</th>
+                      <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">End Date</th>
+                      <th className="h-12 px-4 text-right align-middle font-medium text-muted-foreground">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="[&_tr:last-child]:border-0">
+                    {financialPeriods.map((period) => (
+                      <tr key={period.id} className="border-b transition-colors hover:bg-muted/50" data-testid={`row-period-${period.id}`}>
+                        <td className="p-4 align-middle font-medium">{period.name}</td>
+                        <td className="p-4 align-middle">{period.startDate}</td>
+                        <td className="p-4 align-middle">{period.endDate}</td>
+                        <td className="p-4 align-middle text-right">
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-8 w-8"
+                            onClick={() => { 
+                              setFormData({ 
+                                name: period.name,
+                                startDate: period.startDate,
+                                endDate: period.endDate
+                              }); 
+                              setEditPeriodDialog(period); 
+                            }}
+                            data-testid={`button-edit-period-${period.id}`}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-8 w-8 text-destructive hover:text-destructive"
+                            onClick={() => setDeleteDialog({ type: 'period', id: period.id, name: period.name })}
+                            data-testid={`button-delete-period-${period.id}`}
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
@@ -844,6 +951,60 @@ export default function AdminPage() {
           <DialogFooter>
             <DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose>
             <Button onClick={handleCreateCode} data-testid="button-create-code">Create Code</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!editPeriodDialog} onOpenChange={() => setEditPeriodDialog(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Financial Period</DialogTitle>
+            <DialogDescription>Update the financial period details.</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="name">Period Name</Label>
+              <Input id="name" value={formData.name || ''} onChange={(e) => setFormData({ ...formData, name: e.target.value })} placeholder="e.g. FY 2024/2025" data-testid="input-edit-period-name" />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="startDate">Start Date</Label>
+              <Input id="startDate" type="date" value={formData.startDate || ''} onChange={(e) => setFormData({ ...formData, startDate: e.target.value })} data-testid="input-edit-period-start" />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="endDate">End Date</Label>
+              <Input id="endDate" type="date" value={formData.endDate || ''} onChange={(e) => setFormData({ ...formData, endDate: e.target.value })} data-testid="input-edit-period-end" />
+            </div>
+          </div>
+          <DialogFooter>
+            <DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose>
+            <Button onClick={handleUpdatePeriod} data-testid="button-save-period">Save Changes</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={newPeriodDialog} onOpenChange={setNewPeriodDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add Financial Period</DialogTitle>
+            <DialogDescription>Create a new financial period for reporting.</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="name">Period Name</Label>
+              <Input id="name" value={formData.name || ''} onChange={(e) => setFormData({ ...formData, name: e.target.value })} placeholder="e.g. FY 2024/2025" data-testid="input-new-period-name" />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="startDate">Start Date</Label>
+              <Input id="startDate" type="date" value={formData.startDate || ''} onChange={(e) => setFormData({ ...formData, startDate: e.target.value })} data-testid="input-new-period-start" />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="endDate">End Date</Label>
+              <Input id="endDate" type="date" value={formData.endDate || ''} onChange={(e) => setFormData({ ...formData, endDate: e.target.value })} data-testid="input-new-period-end" />
+            </div>
+          </div>
+          <DialogFooter>
+            <DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose>
+            <Button onClick={handleCreatePeriod} data-testid="button-create-period">Create Period</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
