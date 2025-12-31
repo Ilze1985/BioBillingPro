@@ -30,6 +30,7 @@ export interface IStorage {
   // Billing Codes
   getBillingCode(id: number): Promise<BillingCode | undefined>;
   getAllBillingCodes(): Promise<BillingCode[]>;
+  getBillingCodesByType(billingType: 'medical_aid' | 'private'): Promise<BillingCode[]>;
   createBillingCode(code: InsertBillingCode): Promise<BillingCode>;
 
   // Sessions
@@ -83,6 +84,10 @@ export class DatabaseStorage implements IStorage {
 
   async getAllBillingCodes(): Promise<BillingCode[]> {
     return await db.select().from(billingCodes);
+  }
+
+  async getBillingCodesByType(billingType: 'medical_aid' | 'private'): Promise<BillingCode[]> {
+    return await db.select().from(billingCodes).where(eq(billingCodes.billingType, billingType));
   }
 
   async createBillingCode(insertCode: InsertBillingCode): Promise<BillingCode> {

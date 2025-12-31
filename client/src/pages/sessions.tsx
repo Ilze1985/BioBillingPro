@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
-import { useCreateSession, useSessions, usePatients, useBillingCodes, useUsers } from "@/lib/api";
+import { useCreateSession, useSessions, usePatients, useBillingCodesByType, useUsers, BillingType } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -24,7 +24,6 @@ import { useToast } from "@/hooks/use-toast";
 export default function SessionsPage() {
   const { data: sessions = [], isLoading } = useSessions();
   const { data: patients = [] } = usePatients();
-  const { data: billingCodes = [] } = useBillingCodes();
   const { data: users = [] } = useUsers();
   const createSessionMutation = useCreateSession();
   const { toast } = useToast();
@@ -35,9 +34,18 @@ export default function SessionsPage() {
   // Form State
   const [selectedPatientId, setSelectedPatientId] = useState("");
   const [selectedCodeId, setSelectedCodeId] = useState("");
+  const [selectedBillingType, setSelectedBillingType] = useState<BillingType>("medical_aid");
   const [sessionDate, setSessionDate] = useState(format(new Date(), "yyyy-MM-dd"));
   const [sessionTime, setSessionTime] = useState("09:00");
   const [sessionNotes, setSessionNotes] = useState("");
+
+  // Fetch billing codes based on selected type
+  const { data: billingCodes = [] } = useBillingCodesByType(selectedBillingType);
+
+  // Reset selected code when billing type changes
+  useEffect(() => {
+    setSelectedCodeId("");
+  }, [selectedBillingType]);
 
   // Use first user as current user (in a real app, this would come from auth)
   const currentUser = users[0];
@@ -54,6 +62,7 @@ export default function SessionsPage() {
       practitionerId: currentUser.id,
       patientId: patient.id,
       billingCodeId: code.id,
+      billingType: selectedBillingType,
       date: sessionDate,
       time: sessionTime,
       status: 'captured',
@@ -64,10 +73,11 @@ export default function SessionsPage() {
         setSelectedPatientId("");
         setSelectedCodeId("");
         setSessionNotes("");
+        setSelectedBillingType("medical_aid");
         
         toast({
           title: "Session Captured",
-          description: `Successfully captured session for ${patient.name}`,
+          description: `Successfully captured ${selectedBillingType === 'private' ? 'private' : 'medical aid'} session for ${patient.name}`,
         });
       },
       onError: () => {
@@ -153,10 +163,22 @@ export default function SessionsPage() {
                 </div>
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="code">Billing Code</Label>
+                <Label htmlFor="billingType">Billing Type</Label>
+                <Select value={selectedBillingType} onValueChange={(v) => setSelectedBillingType(v as BillingType)}>
+                  <SelectTrigger id="billingType" data-testid="select-billing-type">
+                    <SelectValue placeholder="Select billing type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="medical_aid">Medical Aid</SelectItem>
+                    <SelectItem value="private">Private</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="code">Tariff Code</Label>
                 <Select value={selectedCodeId} onValueChange={setSelectedCodeId}>
                   <SelectTrigger id="code" data-testid="select-code">
-                    <SelectValue placeholder="Select code" />
+                    <SelectValue placeholder="Select tariff code" />
                   </SelectTrigger>
                   <SelectContent>
                     {billingCodes.map(c => (
@@ -217,6 +239,7 @@ export default function SessionsPage() {
                 <tr className="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted">
                   <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Date</th>
                   <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Patient</th>
+                  <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Type</th>
                   <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Code</th>
                   <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Practitioner</th>
                   <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Status</th>
@@ -233,6 +256,15 @@ export default function SessionsPage() {
                       </div>
                     </td>
                     <td className="p-4 align-middle font-medium">{session.patientName}</td>
+                    <td className="p-4 align-middle">
+                      <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                        session.billingType === 'private' 
+                          ? 'bg-purple-100 text-purple-800' 
+                          : 'bg-blue-100 text-blue-800'
+                      }`}>
+                        {session.billingType === 'private' ? 'Private' : 'Medical Aid'}
+                      </span>
+                    </td>
                     <td className="p-4 align-middle">
                       <div className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80">
                         {session.billingCode}

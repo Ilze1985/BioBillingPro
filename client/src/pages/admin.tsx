@@ -58,6 +58,7 @@ export default function AdminPage() {
                       <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">ID</th>
                       <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Date</th>
                       <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Patient</th>
+                      <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Type</th>
                       <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Practitioner</th>
                       <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Code</th>
                       <th className="h-12 px-4 text-right align-middle font-medium text-muted-foreground">Amount</th>
@@ -70,6 +71,15 @@ export default function AdminPage() {
                         <td className="p-4 align-middle font-mono text-xs">{session.id}</td>
                         <td className="p-4 align-middle">{session.date}</td>
                         <td className="p-4 align-middle font-medium">{session.patientName}</td>
+                        <td className="p-4 align-middle">
+                          <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                            session.billingType === 'private' 
+                              ? 'bg-purple-100 text-purple-800' 
+                              : 'bg-blue-100 text-blue-800'
+                          }`}>
+                            {session.billingType === 'private' ? 'Private' : 'Medical Aid'}
+                          </span>
+                        </td>
                         <td className="p-4 align-middle">{session.practitionerName}</td>
                         <td className="p-4 align-middle">{session.billingCode}</td>
                         <td className="p-4 align-middle text-right">R {session.price}</td>
@@ -139,6 +149,7 @@ export default function AdminPage() {
                     <tr className="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted">
                       <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Code</th>
                       <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Description</th>
+                      <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Type</th>
                       <th className="h-12 px-4 text-right align-middle font-medium text-muted-foreground">Price</th>
                     </tr>
                   </thead>
@@ -147,6 +158,15 @@ export default function AdminPage() {
                       <tr key={code.id} className="border-b transition-colors hover:bg-muted/50" data-testid={`row-code-${code.id}`}>
                         <td className="p-4 align-middle font-bold">{code.code}</td>
                         <td className="p-4 align-middle">{code.description}</td>
+                        <td className="p-4 align-middle">
+                          <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                            code.billingType === 'private' 
+                              ? 'bg-purple-100 text-purple-800' 
+                              : 'bg-blue-100 text-blue-800'
+                          }`}>
+                            {code.billingType === 'private' ? 'Private' : 'Medical Aid'}
+                          </span>
+                        </td>
                         <td className="p-4 align-middle text-right font-medium">R {code.price}</td>
                       </tr>
                     ))}

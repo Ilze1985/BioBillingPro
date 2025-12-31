@@ -60,34 +60,67 @@ export async function seedDatabase() {
       medicalAidNumber: "789123456"
     });
 
-    // Create billing codes
-    const code1 = await storage.createBillingCode({
+    // Create Medical Aid billing codes
+    const maCode1 = await storage.createBillingCode({
       code: "901",
       description: "Initial Consultation (60min)",
-      price: 850
+      price: 850,
+      billingType: "medical_aid"
     });
 
-    const code2 = await storage.createBillingCode({
+    const maCode2 = await storage.createBillingCode({
       code: "903",
       description: "Follow-up Session (45min)",
-      price: 650
+      price: 650,
+      billingType: "medical_aid"
     });
 
-    const code3 = await storage.createBillingCode({
+    const maCode3 = await storage.createBillingCode({
       code: "905",
       description: "Rehabilitation Session (30min)",
-      price: 450
+      price: 450,
+      billingType: "medical_aid"
     });
 
-    const code4 = await storage.createBillingCode({
+    const maCode4 = await storage.createBillingCode({
       code: "801",
       description: "Isokinetic Testing",
-      price: 1200
+      price: 1200,
+      billingType: "medical_aid"
     });
 
-    // Create sample sessions
+    // Create Private billing codes (typically different rates)
+    const pvtCode1 = await storage.createBillingCode({
+      code: "PVT-001",
+      description: "Initial Consultation (60min)",
+      price: 950,
+      billingType: "private"
+    });
+
+    const pvtCode2 = await storage.createBillingCode({
+      code: "PVT-002",
+      description: "Follow-up Session (45min)",
+      price: 750,
+      billingType: "private"
+    });
+
+    const pvtCode3 = await storage.createBillingCode({
+      code: "PVT-003",
+      description: "Rehabilitation Session (30min)",
+      price: 550,
+      billingType: "private"
+    });
+
+    const pvtCode4 = await storage.createBillingCode({
+      code: "PVT-004",
+      description: "Isokinetic Testing",
+      price: 1400,
+      billingType: "private"
+    });
+
+    // Create sample sessions (using medical aid codes)
     const patients = [patient1, patient2, patient3, patient4];
-    const codes = [code1, code2, code3];
+    const codes = [maCode1, maCode2, maCode3];
     const practitioners = [admin, practitioner];
 
     const today = new Date();
@@ -96,14 +129,15 @@ export async function seedDatabase() {
       const date = new Date(today);
       date.setDate(date.getDate() - (i % 7));
       
-      const practitioner = practitioners[i % 2];
+      const practitionerItem = practitioners[i % 2];
       const patient = patients[i % 4];
       const code = codes[i % 3];
 
       await storage.createSession({
-        practitionerId: practitioner.id,
+        practitionerId: practitionerItem.id,
         patientId: patient.id,
         billingCodeId: code.id,
+        billingType: "medical_aid",
         date: date.toISOString().split('T')[0],
         time: `${9 + (i % 8)}:00`,
         status: i > 10 ? 'captured' : 'invoiced',

@@ -5,6 +5,7 @@ import { z } from "zod";
 
 export const userRoleEnum = pgEnum('user_role', ['admin', 'practitioner']);
 export const sessionStatusEnum = pgEnum('session_status', ['captured', 'invoiced', 'paid']);
+export const billingTypeEnum = pgEnum('billing_type', ['medical_aid', 'private']);
 
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
@@ -33,9 +34,10 @@ export const patientsRelations = relations(patients, ({ many }) => ({
 
 export const billingCodes = pgTable("billing_codes", {
   id: serial("id").primaryKey(),
-  code: text("code").notNull().unique(),
+  code: text("code").notNull(),
   description: text("description").notNull(),
   price: integer("price").notNull(),
+  billingType: billingTypeEnum("billing_type").notNull().default('medical_aid'),
 });
 
 export const billingCodesRelations = relations(billingCodes, ({ many }) => ({
@@ -47,6 +49,7 @@ export const sessions = pgTable("sessions", {
   practitionerId: integer("practitioner_id").notNull().references(() => users.id),
   patientId: integer("patient_id").notNull().references(() => patients.id),
   billingCodeId: integer("billing_code_id").notNull().references(() => billingCodes.id),
+  billingType: billingTypeEnum("billing_type").notNull().default('medical_aid'),
   date: text("date").notNull(),
   time: text("time").notNull(),
   notes: text("notes"),

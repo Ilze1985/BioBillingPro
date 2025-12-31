@@ -1,5 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
+export type BillingType = 'medical_aid' | 'private';
+
 // API Types matching backend
 export interface User {
   id: number;
@@ -22,6 +24,7 @@ export interface BillingCode {
   code: string;
   description: string;
   price: number;
+  billingType: BillingType;
 }
 
 export interface Session {
@@ -29,6 +32,7 @@ export interface Session {
   practitionerId: number;
   patientId: number;
   billingCodeId: number;
+  billingType: BillingType;
   date: string;
   time: string;
   notes: string | null;
@@ -58,6 +62,12 @@ async function fetchPatients(): Promise<Patient[]> {
 
 async function fetchBillingCodes(): Promise<BillingCode[]> {
   const res = await fetch('/api/billing-codes');
+  if (!res.ok) throw new Error('Failed to fetch billing codes');
+  return res.json();
+}
+
+async function fetchBillingCodesByType(type: BillingType): Promise<BillingCode[]> {
+  const res = await fetch(`/api/billing-codes?type=${type}`);
   if (!res.ok) throw new Error('Failed to fetch billing codes');
   return res.json();
 }
@@ -127,6 +137,13 @@ export function useBillingCodes() {
   return useQuery({
     queryKey: ['billingCodes'],
     queryFn: fetchBillingCodes,
+  });
+}
+
+export function useBillingCodesByType(type: BillingType) {
+  return useQuery({
+    queryKey: ['billingCodes', type],
+    queryFn: () => fetchBillingCodesByType(type),
   });
 }
 

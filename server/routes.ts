@@ -56,9 +56,15 @@ export async function registerRoutes(
   });
 
   // Billing Codes
-  app.get("/api/billing-codes", async (_req, res) => {
-    const codes = await storage.getAllBillingCodes();
-    res.json(codes);
+  app.get("/api/billing-codes", async (req, res) => {
+    const { type } = req.query;
+    if (type && (type === 'medical_aid' || type === 'private')) {
+      const codes = await storage.getBillingCodesByType(type);
+      res.json(codes);
+    } else {
+      const codes = await storage.getAllBillingCodes();
+      res.json(codes);
+    }
   });
 
   app.post("/api/billing-codes", async (req, res) => {
