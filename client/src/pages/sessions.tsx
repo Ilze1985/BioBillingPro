@@ -43,7 +43,9 @@ export default function SessionsPage() {
   const [discountPercent, setDiscountPercent] = useState<number>(0);
 
   // Fetch billing codes based on selected type
-  const { data: billingCodes = [] } = useBillingCodesByType(selectedBillingType);
+  // Private and private_cash share the same tariff codes
+  const billingTypeForCodes = selectedBillingType === 'private_cash' ? 'private' : selectedBillingType;
+  const { data: billingCodes = [] } = useBillingCodesByType(billingTypeForCodes);
 
   // Reset selected codes and discount when billing type changes
   useEffect(() => {
