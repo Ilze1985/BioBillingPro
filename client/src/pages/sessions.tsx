@@ -33,7 +33,7 @@ export default function SessionsPage() {
 
   // Form State
   const [selectedPatientId, setSelectedPatientId] = useState("");
-  const [selectedCodeId, setSelectedCodeId] = useState("");
+  const [selectedCodeIds, setSelectedCodeIds] = useState<string[]>([]);
   const [selectedBillingType, setSelectedBillingType] = useState<BillingType>("medical_aid");
   const [sessionDate, setSessionDate] = useState(format(new Date(), "yyyy-MM-dd"));
   const [sessionTime, setSessionTime] = useState("09:00");
@@ -44,57 +44,67 @@ export default function SessionsPage() {
   // Fetch billing codes based on selected type
   const { data: billingCodes = [] } = useBillingCodesByType(selectedBillingType);
 
-  // Reset selected code and discount when billing type changes
+  // Reset selected codes and discount when billing type changes
   useEffect(() => {
-    setSelectedCodeId("");
+    setSelectedCodeIds([]);
     setDiscountPercent(0);
   }, [selectedBillingType]);
 
   // Use first user as current user (in a real app, this would come from auth)
   const currentUser = users[0];
 
-  const handleSave = () => {
-    if (!selectedPatientId || !selectedCodeId || !currentUser) return;
+  const handleSave = async () => {
+    if (!selectedPatientId || selectedCodeIds.length === 0 || !currentUser) return;
 
     const patient = patients.find(p => p.id === parseInt(selectedPatientId));
-    const code = billingCodes.find(c => c.id === parseInt(selectedCodeId));
+    if (!patient) return;
 
-    if (!patient || !code) return;
+    const codes = selectedCodeIds.map(id => billingCodes.find(c => c.id === parseInt(id))).filter(Boolean);
+    if (codes.length === 0) return;
 
-    createSessionMutation.mutate({
-      practitionerId: currentUser.id,
-      patientId: patient.id,
-      billingCodeId: code.id,
-      billingType: selectedBillingType,
-      date: sessionDate,
-      time: timeNotApplicable ? 'N/A' : sessionTime,
-      status: 'captured',
-      notes: sessionNotes || null,
-      discountPercent: (selectedBillingType === 'private' || selectedBillingType === 'private_cash') ? discountPercent : 0
-    }, {
-      onSuccess: () => {
-        setIsDialogOpen(false);
-        setSelectedPatientId("");
-        setSelectedCodeId("");
-        setSessionNotes("");
-        setSelectedBillingType("medical_aid");
-        setDiscountPercent(0);
-        setTimeNotApplicable(false);
-        setSessionTime("09:00");
-        
-        toast({
-          title: "Session Captured",
-          description: `Successfully captured ${selectedBillingType === 'private' ? 'private' : selectedBillingType === 'private_cash' ? 'private cash' : 'medical aid'} session for ${patient.firstName} ${patient.surname}`,
+    // Create a session for each selected code
+    let successCount = 0;
+    for (const code of codes) {
+      if (!code) continue;
+      try {
+        await createSessionMutation.mutateAsync({
+          practitionerId: currentUser.id,
+          patientId: patient.id,
+          billingCodeId: code.id,
+          billingType: selectedBillingType,
+          date: sessionDate,
+          time: timeNotApplicable ? 'N/A' : sessionTime,
+          status: 'captured',
+          notes: sessionNotes || null,
+          discountPercent: (selectedBillingType === 'private' || selectedBillingType === 'private_cash') ? discountPercent : 0
         });
-      },
-      onError: () => {
-        toast({
-          title: "Error",
-          description: "Failed to capture session. Please try again.",
-          variant: "destructive",
-        });
+        successCount++;
+      } catch (error) {
+        // Continue with other codes
       }
-    });
+    }
+
+    if (successCount > 0) {
+      setIsDialogOpen(false);
+      setSelectedPatientId("");
+      setSelectedCodeIds([]);
+      setSessionNotes("");
+      setSelectedBillingType("medical_aid");
+      setDiscountPercent(0);
+      setTimeNotApplicable(false);
+      setSessionTime("09:00");
+      
+      toast({
+        title: "Sessions Captured",
+        description: `Successfully captured ${successCount} session${successCount > 1 ? 's' : ''} for ${patient.firstName} ${patient.surname}`,
+      });
+    } else {
+      toast({
+        title: "Error",
+        description: "Failed to capture sessions. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   const filteredSessions = sessions.filter(session => 
@@ -218,19 +228,35 @@ export default function SessionsPage() {
                 </div>
               )}
               <div className="grid gap-2">
-                <Label htmlFor="code">Tariff Code</Label>
-                <Select value={selectedCodeId} onValueChange={setSelectedCodeId}>
-                  <SelectTrigger id="code" data-testid="select-code">
-                    <SelectValue placeholder="Select tariff code" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {billingCodes.map(c => (
-                      <SelectItem key={c.id} value={c.id.toString()}>
+                <Label>Tariff Codes</Label>
+                <div className="border rounded-md p-2 max-h-40 overflow-y-auto space-y-1">
+                  {billingCodes.map(c => (
+                    <div key={c.id} className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        id={`code-${c.id}`}
+                        checked={selectedCodeIds.includes(c.id.toString())}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedCodeIds([...selectedCodeIds, c.id.toString()]);
+                          } else {
+                            setSelectedCodeIds(selectedCodeIds.filter(id => id !== c.id.toString()));
+                          }
+                        }}
+                        className="h-4 w-4 rounded border-gray-300"
+                        data-testid={`checkbox-code-${c.id}`}
+                      />
+                      <Label htmlFor={`code-${c.id}`} className="text-sm font-normal cursor-pointer flex-1">
                         {c.code} - R{c.price} ({c.description})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                      </Label>
+                    </div>
+                  ))}
+                </div>
+                {selectedCodeIds.length > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    {selectedCodeIds.length} code{selectedCodeIds.length > 1 ? 's' : ''} selected
+                  </p>
+                )}
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="notes">Clinical Notes</Label>
