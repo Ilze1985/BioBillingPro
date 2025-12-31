@@ -59,32 +59,21 @@ export default function SessionsPage() {
     const patient = patients.find(p => p.id === parseInt(selectedPatientId));
     if (!patient) return;
 
-    const codes = selectedCodeIds.map(id => billingCodes.find(c => c.id === parseInt(id))).filter(Boolean);
-    if (codes.length === 0) return;
+    const codeIds = selectedCodeIds.map(id => parseInt(id));
 
-    // Create a session for each selected code
-    let successCount = 0;
-    for (const code of codes) {
-      if (!code) continue;
-      try {
-        await createSessionMutation.mutateAsync({
-          practitionerId: currentUser.id,
-          patientId: patient.id,
-          billingCodeId: code.id,
-          billingType: selectedBillingType,
-          date: sessionDate,
-          time: timeNotApplicable ? 'N/A' : sessionTime,
-          status: 'captured',
-          notes: sessionNotes || null,
-          discountPercent: (selectedBillingType === 'private' || selectedBillingType === 'private_cash') ? discountPercent : 0
-        });
-        successCount++;
-      } catch (error) {
-        // Continue with other codes
-      }
-    }
-
-    if (successCount > 0) {
+    try {
+      await createSessionMutation.mutateAsync({
+        practitionerId: currentUser.id,
+        patientId: patient.id,
+        billingCodeIds: codeIds,
+        billingType: selectedBillingType,
+        date: sessionDate,
+        time: timeNotApplicable ? 'N/A' : sessionTime,
+        status: 'captured',
+        notes: sessionNotes || null,
+        discountPercent: (selectedBillingType === 'private' || selectedBillingType === 'private_cash') ? discountPercent : 0
+      });
+      
       setIsDialogOpen(false);
       setSelectedPatientId("");
       setSelectedCodeIds([]);
@@ -95,13 +84,13 @@ export default function SessionsPage() {
       setSessionTime("09:00");
       
       toast({
-        title: "Sessions Captured",
-        description: `Successfully captured ${successCount} session${successCount > 1 ? 's' : ''} for ${patient.firstName} ${patient.surname}`,
+        title: "Session Captured",
+        description: `Successfully captured session with ${codeIds.length} code${codeIds.length > 1 ? 's' : ''} for ${patient.firstName} ${patient.surname}`,
       });
-    } else {
+    } catch (error) {
       toast({
         title: "Error",
-        description: "Failed to capture sessions. Please try again.",
+        description: "Failed to capture session. Please try again.",
         variant: "destructive",
       });
     }
@@ -109,7 +98,7 @@ export default function SessionsPage() {
 
   const filteredSessions = sessions.filter(session => 
     session.patientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    session.billingCode.includes(searchTerm)
+    session.billingCodes.some(code => code.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
   if (isLoading) {
@@ -337,8 +326,12 @@ export default function SessionsPage() {
                       </span>
                     </td>
                     <td className="p-4 align-middle">
-                      <div className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80">
-                        {session.billingCode}
+                      <div className="flex flex-wrap gap-1">
+                        {session.billingCodes.map((code, idx) => (
+                          <span key={idx} className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold border-transparent bg-secondary text-secondary-foreground">
+                            {code}
+                          </span>
+                        ))}
                       </div>
                     </td>
                     <td className="p-4 align-middle text-muted-foreground">{session.practitionerName}</td>
@@ -352,13 +345,13 @@ export default function SessionsPage() {
                       </span>
                     </td>
                     <td className="p-4 align-middle text-right font-medium">
-                      {session.finalPrice !== session.price ? (
+                      {session.finalPrice !== session.totalPrice ? (
                         <div className="flex flex-col items-end">
                           <span>R {session.finalPrice}</span>
-                          <span className="text-xs text-muted-foreground line-through">R {session.price}</span>
+                          <span className="text-xs text-muted-foreground line-through">R {session.totalPrice}</span>
                         </div>
                       ) : (
-                        <span>R {session.price}</span>
+                        <span>R {session.totalPrice}</span>
                       )}
                     </td>
                   </tr>

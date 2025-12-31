@@ -316,16 +316,19 @@ export async function registerRoutes(
       const enrichedSessions = sessions.map(session => {
         const practitioner = users.find(u => u.id === session.practitionerId);
         const patient = patients.find(p => p.id === session.patientId);
-        const billingCode = codes.find(c => c.id === session.billingCodeId);
-        const basePrice = billingCode?.price || 0;
+        
+        // Get all billing codes for this session
+        const sessionCodes = (session.billingCodeIds || []).map(id => codes.find(c => c.id === id)).filter(Boolean);
+        const billingCodeNames = sessionCodes.map(c => c?.code || 'Unknown');
+        const totalPrice = sessionCodes.reduce((sum, c) => sum + (c?.price || 0), 0);
         
         // Calculate final price with discounts
         let totalDiscountPercent = session.discountPercent || 0;
-        let finalPrice = basePrice;
+        let finalPrice = totalPrice;
         
         // Private cash has a fixed 10% discount, rounded to nearest R10
         if (session.billingType === 'private_cash') {
-          const discountedPrice = basePrice * 0.9;
+          const discountedPrice = totalPrice * 0.9;
           finalPrice = Math.round(discountedPrice / 10) * 10;
           // Apply additional discount on top if any
           if (totalDiscountPercent > 0) {
@@ -335,15 +338,15 @@ export async function registerRoutes(
         } else if (totalDiscountPercent > 0) {
           // For private billing with additional discount only
           totalDiscountPercent = Math.max(0, Math.min(100, totalDiscountPercent));
-          finalPrice = basePrice > 0 ? Math.round(basePrice * (1 - totalDiscountPercent / 100)) : 0;
+          finalPrice = totalPrice > 0 ? Math.round(totalPrice * (1 - totalDiscountPercent / 100)) : 0;
         }
 
         return {
           ...session,
           practitionerName: practitioner?.name || 'Unknown',
           patientName: patient ? `${patient.firstName} ${patient.surname}` : 'Unknown',
-          billingCode: billingCode?.code || 'Unknown',
-          price: basePrice,
+          billingCodes: billingCodeNames,
+          totalPrice: totalPrice,
           finalPrice: finalPrice
         };
       });

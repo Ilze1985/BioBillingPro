@@ -32,7 +32,7 @@ export interface Session {
   id: number;
   practitionerId: number;
   patientId: number;
-  billingCodeId: number;
+  billingCodeIds: number[];
   billingType: BillingType;
   date: string;
   time: string;
@@ -45,8 +45,8 @@ export interface Session {
 export interface EnrichedSession extends Session {
   practitionerName: string;
   patientName: string;
-  billingCode: string;
-  price: number;
+  billingCodes: string[];
+  totalPrice: number;
   finalPrice: number;
 }
 

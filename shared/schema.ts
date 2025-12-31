@@ -49,7 +49,7 @@ export const sessions = pgTable("sessions", {
   id: serial("id").primaryKey(),
   practitionerId: integer("practitioner_id").notNull().references(() => users.id),
   patientId: integer("patient_id").notNull().references(() => patients.id),
-  billingCodeId: integer("billing_code_id").notNull().references(() => billingCodes.id),
+  billingCodeIds: integer("billing_code_ids").array().notNull(),
   billingType: billingTypeEnum("billing_type").notNull().default('medical_aid'),
   date: text("date").notNull(),
   time: text("time").notNull(),
@@ -67,10 +67,6 @@ export const sessionsRelations = relations(sessions, ({ one }) => ({
   patient: one(patients, {
     fields: [sessions.patientId],
     references: [patients.id],
-  }),
-  billingCode: one(billingCodes, {
-    fields: [sessions.billingCodeId],
-    references: [billingCodes.id],
   }),
 }));
 
