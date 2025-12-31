@@ -241,11 +241,38 @@ export default function SessionsPage() {
                     </div>
                   ))}
                 </div>
-                {selectedCodeIds.length > 0 && (
-                  <p className="text-xs text-muted-foreground">
-                    {selectedCodeIds.length} code{selectedCodeIds.length > 1 ? 's' : ''} selected
-                  </p>
-                )}
+                {selectedCodeIds.length > 0 && (() => {
+                  const selectedCodes = selectedCodeIds.map(id => billingCodes.find(c => c.id === parseInt(id))).filter(Boolean);
+                  const totalPrice = selectedCodes.reduce((sum, c) => sum + (c?.price || 0), 0);
+                  let finalPrice = totalPrice;
+                  
+                  if (selectedBillingType === 'private_cash') {
+                    finalPrice = Math.round(totalPrice * 0.9 / 10) * 10;
+                    if (discountPercent > 0) {
+                      finalPrice = Math.round(finalPrice * (1 - discountPercent / 100));
+                    }
+                  } else if (selectedBillingType === 'private' && discountPercent > 0) {
+                    finalPrice = Math.round(totalPrice * (1 - discountPercent / 100));
+                  }
+                  
+                  return (
+                    <div className="flex justify-between items-center p-2 bg-muted rounded-md">
+                      <span className="text-sm text-muted-foreground">
+                        {selectedCodeIds.length} code{selectedCodeIds.length > 1 ? 's' : ''} selected
+                      </span>
+                      <div className="text-right">
+                        {finalPrice !== totalPrice ? (
+                          <div className="flex flex-col items-end">
+                            <span className="font-semibold text-green-600">R {finalPrice}</span>
+                            <span className="text-xs text-muted-foreground line-through">R {totalPrice}</span>
+                          </div>
+                        ) : (
+                          <span className="font-semibold">R {totalPrice}</span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="notes">Clinical Notes</Label>
