@@ -1,6 +1,6 @@
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { useStore } from "@/lib/store";
+import { useSessions, usePatients, useUsers } from "@/lib/api";
 import { format, isSameDay, startOfWeek, endOfWeek, isWithinInterval, parseISO } from "date-fns";
 import { 
   BarChart, 
@@ -14,7 +14,9 @@ import {
 import { CalendarDays, DollarSign, Users, Activity } from "lucide-react";
 
 export default function Dashboard() {
-  const { sessions, patients, billingCodes } = useStore();
+  const { data: sessions = [], isLoading: loadingSessions } = useSessions();
+  const { data: patients = [] } = usePatients();
+  const { data: users = [] } = useUsers();
   
   const today = new Date();
   const weekStart = startOfWeek(today, { weekStartsOn: 1 });
@@ -28,7 +30,6 @@ export default function Dashboard() {
   
   const totalDailyRevenue = todaysSessions.reduce((acc, s) => acc + s.price, 0);
   const totalWeeklyRevenue = weeklySessions.reduce((acc, s) => acc + s.price, 0);
-  const totalMonthlyRevenue = sessions.reduce((acc, s) => acc + s.price, 0); // Simplified for mockup
 
   // Prepare chart data (Last 7 days)
   const chartData = Array.from({ length: 7 }).map((_, i) => {
@@ -45,10 +46,20 @@ export default function Dashboard() {
     };
   });
 
+  if (loadingSessions) {
+    return (
+      <AppLayout>
+        <div className="flex items-center justify-center h-96">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
+        </div>
+      </AppLayout>
+    );
+  }
+
   return (
     <AppLayout>
       <div className="flex flex-col gap-2">
-        <h1 className="text-3xl font-bold tracking-tight text-foreground">Dashboard</h1>
+        <h1 className="text-3xl font-bold tracking-tight text-foreground" data-testid="heading-dashboard">Dashboard</h1>
         <p className="text-muted-foreground">Welcome back to your practice overview.</p>
       </div>
 
@@ -59,7 +70,7 @@ export default function Dashboard() {
             <DollarSign className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">R {totalDailyRevenue.toLocaleString()}</div>
+            <div className="text-2xl font-bold" data-testid="text-daily-revenue">R {totalDailyRevenue.toLocaleString()}</div>
             <p className="text-xs text-muted-foreground">
               {todaysSessions.length} sessions today
             </p>
@@ -72,7 +83,7 @@ export default function Dashboard() {
             <Activity className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">R {totalWeeklyRevenue.toLocaleString()}</div>
+            <div className="text-2xl font-bold" data-testid="text-weekly-revenue">R {totalWeeklyRevenue.toLocaleString()}</div>
             <p className="text-xs text-muted-foreground">
               {weeklySessions.length} sessions this week
             </p>
@@ -85,9 +96,9 @@ export default function Dashboard() {
             <Users className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{patients.length}</div>
+            <div className="text-2xl font-bold" data-testid="text-patient-count">{patients.length}</div>
             <p className="text-xs text-muted-foreground">
-              +2 new this month
+              Total registered
             </p>
           </CardContent>
         </Card>
@@ -98,7 +109,7 @@ export default function Dashboard() {
             <CalendarDays className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
+            <div className="text-2xl font-bold" data-testid="text-pending-count">
               {sessions.filter(s => s.status === 'captured').length}
             </div>
             <p className="text-xs text-muted-foreground">
@@ -155,7 +166,7 @@ export default function Dashboard() {
           <CardContent>
             <div className="space-y-4">
               {sessions.slice(0, 5).map((session) => (
-                <div key={session.id} className="flex items-center">
+                <div key={session.id} className="flex items-center" data-testid={`session-recent-${session.id}`}>
                   <div className="ml-4 space-y-1">
                     <p className="text-sm font-medium leading-none">{session.patientName}</p>
                     <p className="text-xs text-muted-foreground">

@@ -1,14 +1,14 @@
 import { useState } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
-import { useStore, Session } from "@/lib/store";
+import { useCreateSession, useSessions, usePatients, useBillingCodes, useUsers } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { format } from "date-fns";
-import { Plus, Search, Calendar as CalendarIcon, Filter } from "lucide-react";
+import { Plus, Search, Filter } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -22,8 +22,13 @@ import {
 import { useToast } from "@/hooks/use-toast";
 
 export default function SessionsPage() {
-  const { sessions, patients, billingCodes, currentUser, addSession } = useStore();
+  const { data: sessions = [], isLoading } = useSessions();
+  const { data: patients = [] } = usePatients();
+  const { data: billingCodes = [] } = useBillingCodes();
+  const { data: users = [] } = useUsers();
+  const createSessionMutation = useCreateSession();
   const { toast } = useToast();
+  
   const [searchTerm, setSearchTerm] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
@@ -34,40 +39,44 @@ export default function SessionsPage() {
   const [sessionTime, setSessionTime] = useState("09:00");
   const [sessionNotes, setSessionNotes] = useState("");
 
+  // Use first user as current user (in a real app, this would come from auth)
+  const currentUser = users[0];
+
   const handleSave = () => {
     if (!selectedPatientId || !selectedCodeId || !currentUser) return;
 
-    const patient = patients.find(p => p.id === selectedPatientId);
-    const code = billingCodes.find(c => c.id === selectedCodeId);
+    const patient = patients.find(p => p.id === parseInt(selectedPatientId));
+    const code = billingCodes.find(c => c.id === parseInt(selectedCodeId));
 
     if (!patient || !code) return;
 
-    const newSession: Session = {
-      id: `session-${Date.now()}`,
+    createSessionMutation.mutate({
       practitionerId: currentUser.id,
-      practitionerName: currentUser.name,
       patientId: patient.id,
-      patientName: patient.name,
+      billingCodeId: code.id,
       date: sessionDate,
       time: sessionTime,
-      billingCodeId: code.id,
-      billingCode: code.code,
-      price: code.price,
       status: 'captured',
-      notes: sessionNotes
-    };
-
-    addSession(newSession);
-    setIsDialogOpen(false);
-    
-    // Reset form
-    setSelectedPatientId("");
-    setSelectedCodeId("");
-    setSessionNotes("");
-    
-    toast({
-      title: "Session Captured",
-      description: `Successfully captured session for ${patient.name}`,
+      notes: sessionNotes || null
+    }, {
+      onSuccess: () => {
+        setIsDialogOpen(false);
+        setSelectedPatientId("");
+        setSelectedCodeId("");
+        setSessionNotes("");
+        
+        toast({
+          title: "Session Captured",
+          description: `Successfully captured session for ${patient.name}`,
+        });
+      },
+      onError: () => {
+        toast({
+          title: "Error",
+          description: "Failed to capture session. Please try again.",
+          variant: "destructive",
+        });
+      }
     });
   };
 
@@ -76,16 +85,26 @@ export default function SessionsPage() {
     session.billingCode.includes(searchTerm)
   );
 
+  if (isLoading) {
+    return (
+      <AppLayout>
+        <div className="flex items-center justify-center h-96">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
+        </div>
+      </AppLayout>
+    );
+  }
+
   return (
     <AppLayout>
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-foreground">Sessions</h1>
+          <h1 className="text-3xl font-bold tracking-tight text-foreground" data-testid="heading-sessions">Sessions</h1>
           <p className="text-muted-foreground">Capture and manage patient sessions.</p>
         </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
-            <Button className="gap-2 shadow-sm">
+            <Button className="gap-2 shadow-sm" data-testid="button-new-session">
               <Plus className="h-4 w-4" />
               Capture New Session
             </Button>
@@ -101,12 +120,12 @@ export default function SessionsPage() {
               <div className="grid gap-2">
                 <Label htmlFor="patient">Patient</Label>
                 <Select value={selectedPatientId} onValueChange={setSelectedPatientId}>
-                  <SelectTrigger id="patient">
+                  <SelectTrigger id="patient" data-testid="select-patient">
                     <SelectValue placeholder="Select patient" />
                   </SelectTrigger>
                   <SelectContent>
                     {patients.map(p => (
-                      <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                      <SelectItem key={p.id} value={p.id.toString()}>{p.name}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -118,7 +137,8 @@ export default function SessionsPage() {
                     id="date" 
                     type="date" 
                     value={sessionDate} 
-                    onChange={(e) => setSessionDate(e.target.value)} 
+                    onChange={(e) => setSessionDate(e.target.value)}
+                    data-testid="input-date"
                   />
                 </div>
                 <div className="grid gap-2">
@@ -127,19 +147,20 @@ export default function SessionsPage() {
                     id="time" 
                     type="time" 
                     value={sessionTime} 
-                    onChange={(e) => setSessionTime(e.target.value)} 
+                    onChange={(e) => setSessionTime(e.target.value)}
+                    data-testid="input-time"
                   />
                 </div>
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="code">Billing Code</Label>
                 <Select value={selectedCodeId} onValueChange={setSelectedCodeId}>
-                  <SelectTrigger id="code">
+                  <SelectTrigger id="code" data-testid="select-code">
                     <SelectValue placeholder="Select code" />
                   </SelectTrigger>
                   <SelectContent>
                     {billingCodes.map(c => (
-                      <SelectItem key={c.id} value={c.id}>
+                      <SelectItem key={c.id} value={c.id.toString()}>
                         {c.code} - R{c.price} ({c.description})
                       </SelectItem>
                     ))}
@@ -153,6 +174,7 @@ export default function SessionsPage() {
                   value={sessionNotes} 
                   onChange={(e) => setSessionNotes(e.target.value)}
                   placeholder="Enter session notes..."
+                  data-testid="input-notes"
                 />
               </div>
             </div>
@@ -160,7 +182,7 @@ export default function SessionsPage() {
               <DialogClose asChild>
                 <Button variant="outline">Cancel</Button>
               </DialogClose>
-              <Button onClick={handleSave}>Save Session</Button>
+              <Button onClick={handleSave} data-testid="button-save-session">Save Session</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -179,6 +201,7 @@ export default function SessionsPage() {
                   className="pl-8 h-9 w-[200px] lg:w-[300px]"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
+                  data-testid="input-search"
                 />
               </div>
               <Button variant="outline" size="icon" className="h-9 w-9">
@@ -202,7 +225,7 @@ export default function SessionsPage() {
               </thead>
               <tbody className="[&_tr:last-child]:border-0">
                 {filteredSessions.map((session) => (
-                  <tr key={session.id} className="border-b transition-colors hover:bg-muted/50">
+                  <tr key={session.id} className="border-b transition-colors hover:bg-muted/50" data-testid={`row-session-${session.id}`}>
                     <td className="p-4 align-middle">
                       <div className="flex flex-col">
                         <span className="font-medium">{session.date}</span>

@@ -1,22 +1,35 @@
 import { AppLayout } from "@/components/layout/AppLayout";
-import { useStore } from "@/lib/store";
+import { useSessions, useUsers, useBillingCodes } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Download } from "lucide-react";
-import { format } from "date-fns";
 
 export default function AdminPage() {
-  const { sessions, users, billingCodes } = useStore();
+  const { data: sessions = [], isLoading: loadingSessions } = useSessions();
+  const { data: users = [], isLoading: loadingUsers } = useUsers();
+  const { data: billingCodes = [], isLoading: loadingCodes } = useBillingCodes();
+
+  const isLoading = loadingSessions || loadingUsers || loadingCodes;
+
+  if (isLoading) {
+    return (
+      <AppLayout>
+        <div className="flex items-center justify-center h-96">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
+        </div>
+      </AppLayout>
+    );
+  }
 
   return (
     <AppLayout>
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-foreground">Admin View</h1>
+          <h1 className="text-3xl font-bold tracking-tight text-foreground" data-testid="heading-admin">Admin View</h1>
           <p className="text-muted-foreground">Master view of all practice data.</p>
         </div>
-        <Button variant="outline" className="gap-2">
+        <Button variant="outline" className="gap-2" data-testid="button-export">
           <Download className="h-4 w-4" />
           Export to CSV
         </Button>
@@ -24,9 +37,9 @@ export default function AdminPage() {
 
       <Tabs defaultValue="all-sessions" className="space-y-4">
         <TabsList>
-          <TabsTrigger value="all-sessions">All Sessions</TabsTrigger>
-          <TabsTrigger value="staff">Staff</TabsTrigger>
-          <TabsTrigger value="codes">Billing Codes</TabsTrigger>
+          <TabsTrigger value="all-sessions" data-testid="tab-sessions">All Sessions</TabsTrigger>
+          <TabsTrigger value="staff" data-testid="tab-staff">Staff</TabsTrigger>
+          <TabsTrigger value="codes" data-testid="tab-codes">Billing Codes</TabsTrigger>
         </TabsList>
         
         <TabsContent value="all-sessions" className="space-y-4">
@@ -53,14 +66,14 @@ export default function AdminPage() {
                   </thead>
                   <tbody className="[&_tr:last-child]:border-0">
                     {sessions.map((session) => (
-                      <tr key={session.id} className="border-b transition-colors hover:bg-muted/50">
+                      <tr key={session.id} className="border-b transition-colors hover:bg-muted/50" data-testid={`row-admin-session-${session.id}`}>
                         <td className="p-4 align-middle font-mono text-xs">{session.id}</td>
                         <td className="p-4 align-middle">{session.date}</td>
                         <td className="p-4 align-middle font-medium">{session.patientName}</td>
                         <td className="p-4 align-middle">{session.practitionerName}</td>
                         <td className="p-4 align-middle">{session.billingCode}</td>
                         <td className="p-4 align-middle text-right">R {session.price}</td>
-                        <td className="p-4 align-middle text-right">{session.status}</td>
+                        <td className="p-4 align-middle text-right capitalize">{session.status}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -91,7 +104,7 @@ export default function AdminPage() {
                   </thead>
                   <tbody className="[&_tr:last-child]:border-0">
                     {users.map((user) => (
-                      <tr key={user.id} className="border-b transition-colors hover:bg-muted/50">
+                      <tr key={user.id} className="border-b transition-colors hover:bg-muted/50" data-testid={`row-user-${user.id}`}>
                         <td className="p-4 align-middle font-medium">{user.name}</td>
                         <td className="p-4 align-middle">{user.email}</td>
                         <td className="p-4 align-middle">
@@ -131,7 +144,7 @@ export default function AdminPage() {
                   </thead>
                   <tbody className="[&_tr:last-child]:border-0">
                     {billingCodes.map((code) => (
-                      <tr key={code.id} className="border-b transition-colors hover:bg-muted/50">
+                      <tr key={code.id} className="border-b transition-colors hover:bg-muted/50" data-testid={`row-code-${code.id}`}>
                         <td className="p-4 align-middle font-bold">{code.code}</td>
                         <td className="p-4 align-middle">{code.description}</td>
                         <td className="p-4 align-middle text-right font-medium">R {code.price}</td>

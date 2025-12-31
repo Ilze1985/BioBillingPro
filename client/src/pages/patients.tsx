@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
-import { useStore, Patient } from "@/lib/store";
+import { usePatients, useCreatePatient } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,8 +19,10 @@ import {
 import { useToast } from "@/hooks/use-toast";
 
 export default function PatientsPage() {
-  const { patients, addPatient } = useStore();
+  const { data: patients = [], isLoading } = usePatients();
+  const createPatientMutation = useCreatePatient();
   const { toast } = useToast();
+  
   const [searchTerm, setSearchTerm] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
@@ -34,46 +36,61 @@ export default function PatientsPage() {
   const handleSave = () => {
     if (!name) return;
 
-    const newPatient: Patient = {
-      id: `patient-${Date.now()}`,
+    createPatientMutation.mutate({
       name,
-      email,
-      phone,
-      medicalAid,
-      medicalAidNumber
-    };
-
-    addPatient(newPatient);
-    setIsDialogOpen(false);
-    
-    // Reset form
-    setName("");
-    setEmail("");
-    setPhone("");
-    setMedicalAid("");
-    setMedicalAidNumber("");
-    
-    toast({
-      title: "Patient Added",
-      description: `${name} has been added to the database.`,
+      email: email || null,
+      phone: phone || null,
+      medicalAid: medicalAid || null,
+      medicalAidNumber: medicalAidNumber || null
+    }, {
+      onSuccess: () => {
+        setIsDialogOpen(false);
+        setName("");
+        setEmail("");
+        setPhone("");
+        setMedicalAid("");
+        setMedicalAidNumber("");
+        
+        toast({
+          title: "Patient Added",
+          description: `${name} has been added to the database.`,
+        });
+      },
+      onError: () => {
+        toast({
+          title: "Error",
+          description: "Failed to add patient. Please try again.",
+          variant: "destructive",
+        });
+      }
     });
   };
 
   const filteredPatients = patients.filter(patient => 
     patient.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    patient.medicalAid.toLowerCase().includes(searchTerm.toLowerCase())
+    (patient.medicalAid && patient.medicalAid.toLowerCase().includes(searchTerm.toLowerCase()))
   );
+
+  if (isLoading) {
+    return (
+      <AppLayout>
+        <div className="flex items-center justify-center h-96">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
+        </div>
+      </AppLayout>
+    );
+  }
 
   return (
     <AppLayout>
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-foreground">Patients</h1>
+          <h1 className="text-3xl font-bold tracking-tight text-foreground" data-testid="heading-patients">Patients</h1>
           <p className="text-muted-foreground">Manage your patient database.</p>
         </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
-            <Button className="gap-2 shadow-sm">
+            <Button className="gap-2 shadow-sm" data-testid="button-add-patient">
               <Plus className="h-4 w-4" />
               Add New Patient
             </Button>
@@ -88,26 +105,57 @@ export default function PatientsPage() {
             <div className="grid gap-4 py-4">
               <div className="grid gap-2">
                 <Label htmlFor="name">Full Name</Label>
-                <Input id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. John Doe" />
+                <Input 
+                  id="name" 
+                  value={name} 
+                  onChange={(e) => setName(e.target.value)} 
+                  placeholder="e.g. John Doe"
+                  data-testid="input-name"
+                />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-2">
                   <Label htmlFor="email">Email</Label>
-                  <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="john@example.com" />
+                  <Input 
+                    id="email" 
+                    type="email" 
+                    value={email} 
+                    onChange={(e) => setEmail(e.target.value)} 
+                    placeholder="john@example.com"
+                    data-testid="input-email"
+                  />
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="phone">Phone</Label>
-                  <Input id="phone" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="082 123 4567" />
+                  <Input 
+                    id="phone" 
+                    value={phone} 
+                    onChange={(e) => setPhone(e.target.value)} 
+                    placeholder="082 123 4567"
+                    data-testid="input-phone"
+                  />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-2">
                   <Label htmlFor="medicalAid">Medical Aid</Label>
-                  <Input id="medicalAid" value={medicalAid} onChange={(e) => setMedicalAid(e.target.value)} placeholder="Discovery" />
+                  <Input 
+                    id="medicalAid" 
+                    value={medicalAid} 
+                    onChange={(e) => setMedicalAid(e.target.value)} 
+                    placeholder="Discovery"
+                    data-testid="input-medical-aid"
+                  />
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="maNumber">Number</Label>
-                  <Input id="maNumber" value={medicalAidNumber} onChange={(e) => setMedicalAidNumber(e.target.value)} placeholder="123456789" />
+                  <Input 
+                    id="maNumber" 
+                    value={medicalAidNumber} 
+                    onChange={(e) => setMedicalAidNumber(e.target.value)} 
+                    placeholder="123456789"
+                    data-testid="input-medical-aid-number"
+                  />
                 </div>
               </div>
             </div>
@@ -115,7 +163,7 @@ export default function PatientsPage() {
               <DialogClose asChild>
                 <Button variant="outline">Cancel</Button>
               </DialogClose>
-              <Button onClick={handleSave}>Add Patient</Button>
+              <Button onClick={handleSave} data-testid="button-save-patient">Add Patient</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -130,13 +178,14 @@ export default function PatientsPage() {
             className="pl-8 bg-background"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
+            data-testid="input-search-patients"
           />
         </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {filteredPatients.map((patient) => (
-          <Card key={patient.id} className="shadow-sm hover:shadow-md transition-all cursor-pointer">
+          <Card key={patient.id} className="shadow-sm hover:shadow-md transition-all cursor-pointer" data-testid={`card-patient-${patient.id}`}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-lg font-bold">{patient.name}</CardTitle>
               <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
@@ -147,15 +196,15 @@ export default function PatientsPage() {
               <div className="space-y-3 mt-2">
                 <div className="flex items-center text-sm text-muted-foreground">
                   <Mail className="mr-2 h-4 w-4 text-primary/70" />
-                  {patient.email}
+                  {patient.email || 'N/A'}
                 </div>
                 <div className="flex items-center text-sm text-muted-foreground">
                   <Phone className="mr-2 h-4 w-4 text-primary/70" />
-                  {patient.phone}
+                  {patient.phone || 'N/A'}
                 </div>
                 <div className="flex items-center text-sm text-muted-foreground">
                   <CreditCard className="mr-2 h-4 w-4 text-primary/70" />
-                  {patient.medicalAid} • {patient.medicalAidNumber}
+                  {patient.medicalAid || 'N/A'} {patient.medicalAidNumber ? `• ${patient.medicalAidNumber}` : ''}
                 </div>
               </div>
             </CardContent>

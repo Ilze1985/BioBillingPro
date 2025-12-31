@@ -3,17 +3,16 @@ import {
   LayoutDashboard, 
   CalendarDays, 
   Users, 
-  Settings, 
   LogOut, 
   FileSpreadsheet,
-  Stethoscope
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useStore } from "@/lib/store";
+import { useUsers } from "@/lib/api";
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
-  const { currentUser } = useStore();
+  const { data: users = [] } = useUsers();
+  const currentUser = users[0];
 
   const navigation = [
     { name: "Dashboard", href: "/", icon: LayoutDashboard },
