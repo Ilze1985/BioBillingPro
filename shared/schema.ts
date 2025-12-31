@@ -5,7 +5,7 @@ import { z } from "zod";
 
 export const userRoleEnum = pgEnum('user_role', ['admin', 'practitioner']);
 export const sessionStatusEnum = pgEnum('session_status', ['captured', 'invoiced', 'paid']);
-export const billingTypeEnum = pgEnum('billing_type', ['medical_aid', 'private']);
+export const billingTypeEnum = pgEnum('billing_type', ['medical_aid', 'private', 'private_cash']);
 
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
@@ -26,6 +26,7 @@ export const patients = pgTable("patients", {
   dateOfBirth: text("date_of_birth"),
   accountNumber: text("account_number"),
   billingType: billingTypeEnum("billing_type").notNull().default('medical_aid'),
+  medicalAidName: text("medical_aid_name"),
 });
 
 export const patientsRelations = relations(patients, ({ many }) => ({

@@ -121,6 +121,7 @@ export default function AdminPage() {
   const handleUpdatePatient = async () => {
     if (!editPatientDialog) return;
     try {
+      const bt = formData.billingType as BillingType;
       await updatePatientMutation.mutateAsync({
         id: editPatientDialog.id,
         data: { 
@@ -128,7 +129,8 @@ export default function AdminPage() {
           surname: formData.surname, 
           dateOfBirth: formData.dateOfBirth || null,
           accountNumber: formData.accountNumber || null,
-          billingType: formData.billingType as BillingType
+          billingType: bt,
+          medicalAidName: bt === 'medical_aid' ? (formData.medicalAidName || null) : null
         }
       });
       toast({ title: "Updated", description: "Patient has been updated." });
@@ -140,12 +142,14 @@ export default function AdminPage() {
 
   const handleCreatePatient = async () => {
     try {
+      const bt = formData.billingType as BillingType;
       await createPatientMutation.mutateAsync({
         firstName: formData.firstName,
         surname: formData.surname,
         dateOfBirth: formData.dateOfBirth || null,
         accountNumber: formData.accountNumber || null,
-        billingType: formData.billingType as BillingType
+        billingType: bt,
+        medicalAidName: bt === 'medical_aid' ? (formData.medicalAidName || null) : null
       });
       toast({ title: "Created", description: "Patient has been created." });
       setNewPatientDialog(false);
@@ -280,9 +284,11 @@ export default function AdminPage() {
                           <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${
                             session.billingType === 'private' 
                               ? 'bg-purple-100 text-purple-800' 
+                              : session.billingType === 'private_cash'
+                              ? 'bg-green-100 text-green-800'
                               : 'bg-blue-100 text-blue-800'
                           }`}>
-                            {session.billingType === 'private' ? 'Private' : 'Medical Aid'}
+                            {session.billingType === 'private' ? 'Private' : session.billingType === 'private_cash' ? 'Private Cash' : 'Medical Aid'}
                           </span>
                         </td>
                         <td className="p-4 align-middle">{session.practitionerName}</td>
@@ -340,13 +346,20 @@ export default function AdminPage() {
                         <td className="p-4 align-middle">{patient.dateOfBirth || '-'}</td>
                         <td className="p-4 align-middle">{patient.accountNumber || '-'}</td>
                         <td className="p-4 align-middle">
-                          <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                            patient.billingType === 'private' 
-                              ? 'bg-purple-100 text-purple-800' 
-                              : 'bg-blue-100 text-blue-800'
-                          }`}>
-                            {patient.billingType === 'private' ? 'Private' : 'Medical Aid'}
-                          </span>
+                          <div className="flex items-center gap-2">
+                            <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                              patient.billingType === 'private' 
+                                ? 'bg-purple-100 text-purple-800' 
+                                : patient.billingType === 'private_cash'
+                                ? 'bg-green-100 text-green-800'
+                                : 'bg-blue-100 text-blue-800'
+                            }`}>
+                              {patient.billingType === 'private' ? 'Private' : patient.billingType === 'private_cash' ? 'Private Cash' : 'Medical Aid'}
+                            </span>
+                            {patient.billingType === 'medical_aid' && patient.medicalAidName && (
+                              <span className="text-xs text-muted-foreground">({patient.medicalAidName})</span>
+                            )}
+                          </div>
                         </td>
                         <td className="p-4 align-middle text-right">
                           <Button 
@@ -359,7 +372,8 @@ export default function AdminPage() {
                                 surname: patient.surname, 
                                 dateOfBirth: patient.dateOfBirth || '',
                                 accountNumber: patient.accountNumber || '',
-                                billingType: patient.billingType
+                                billingType: patient.billingType,
+                                medicalAidName: patient.medicalAidName || ''
                               }); 
                               setEditPatientDialog(patient); 
                             }}
@@ -513,9 +527,11 @@ export default function AdminPage() {
                           <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${
                             code.billingType === 'private' 
                               ? 'bg-purple-100 text-purple-800' 
+                              : code.billingType === 'private_cash'
+                              ? 'bg-green-100 text-green-800'
                               : 'bg-blue-100 text-blue-800'
                           }`}>
-                            {code.billingType === 'private' ? 'Private' : 'Medical Aid'}
+                            {code.billingType === 'private' ? 'Private' : code.billingType === 'private_cash' ? 'Private Cash' : 'Medical Aid'}
                           </span>
                         </td>
                         <td className="p-4 align-middle text-right font-medium">R {code.price}</td>
@@ -676,8 +692,21 @@ export default function AdminPage() {
                 <SelectContent>
                   <SelectItem value="medical_aid">Medical Aid</SelectItem>
                   <SelectItem value="private">Private</SelectItem>
+                  <SelectItem value="private_cash">Private Cash</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="medicalAidName">Medical Aid Name</Label>
+              <Input 
+                id="medicalAidName" 
+                value={formData.medicalAidName || ''} 
+                onChange={(e) => setFormData({ ...formData, medicalAidName: e.target.value })} 
+                placeholder={formData.billingType === 'medical_aid' ? "e.g. Discovery, Bonitas" : "N/A for private billing"}
+                disabled={formData.billingType !== 'medical_aid'}
+                className={formData.billingType !== 'medical_aid' ? 'bg-muted cursor-not-allowed' : ''}
+                data-testid="input-edit-patient-medical-aid-name" 
+              />
             </div>
           </div>
           <DialogFooter>
@@ -719,8 +748,21 @@ export default function AdminPage() {
                 <SelectContent>
                   <SelectItem value="medical_aid">Medical Aid</SelectItem>
                   <SelectItem value="private">Private</SelectItem>
+                  <SelectItem value="private_cash">Private Cash</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="medicalAidName">Medical Aid Name</Label>
+              <Input 
+                id="medicalAidName" 
+                value={formData.medicalAidName || ''} 
+                onChange={(e) => setFormData({ ...formData, medicalAidName: e.target.value })} 
+                placeholder={formData.billingType === 'medical_aid' ? "e.g. Discovery, Bonitas" : "N/A for private billing"}
+                disabled={formData.billingType !== 'medical_aid'}
+                className={formData.billingType !== 'medical_aid' ? 'bg-muted cursor-not-allowed' : ''}
+                data-testid="input-new-patient-medical-aid-name" 
+              />
             </div>
           </div>
           <DialogFooter>
@@ -756,6 +798,7 @@ export default function AdminPage() {
                 <SelectContent>
                   <SelectItem value="medical_aid">Medical Aid</SelectItem>
                   <SelectItem value="private">Private</SelectItem>
+                  <SelectItem value="private_cash">Private Cash</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -793,6 +836,7 @@ export default function AdminPage() {
                 <SelectContent>
                   <SelectItem value="medical_aid">Medical Aid</SelectItem>
                   <SelectItem value="private">Private</SelectItem>
+                  <SelectItem value="private_cash">Private Cash</SelectItem>
                 </SelectContent>
               </Select>
             </div>

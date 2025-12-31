@@ -171,6 +171,7 @@ export default function SessionsPage() {
                   <SelectContent>
                     <SelectItem value="medical_aid">Medical Aid</SelectItem>
                     <SelectItem value="private">Private</SelectItem>
+                    <SelectItem value="private_cash">Private Cash</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -260,9 +261,11 @@ export default function SessionsPage() {
                       <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${
                         session.billingType === 'private' 
                           ? 'bg-purple-100 text-purple-800' 
+                          : session.billingType === 'private_cash'
+                          ? 'bg-green-100 text-green-800'
                           : 'bg-blue-100 text-blue-800'
                       }`}>
-                        {session.billingType === 'private' ? 'Private' : 'Medical Aid'}
+                        {session.billingType === 'private' ? 'Private' : session.billingType === 'private_cash' ? 'Private Cash' : 'Medical Aid'}
                       </span>
                     </td>
                     <td className="p-4 align-middle">

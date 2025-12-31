@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
-export type BillingType = 'medical_aid' | 'private';
+export type BillingType = 'medical_aid' | 'private' | 'private_cash';
 
 // API Types matching backend
 export interface User {
@@ -17,6 +17,7 @@ export interface Patient {
   dateOfBirth: string | null;
   accountNumber: string | null;
   billingType: BillingType;
+  medicalAidName: string | null;
 }
 
 export interface BillingCode {

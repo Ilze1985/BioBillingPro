@@ -38,6 +38,7 @@ export default function PatientsPage() {
   const [dateOfBirth, setDateOfBirth] = useState("");
   const [accountNumber, setAccountNumber] = useState("");
   const [billingType, setBillingType] = useState<BillingType>("medical_aid");
+  const [medicalAidName, setMedicalAidName] = useState("");
 
   const handleSave = () => {
     if (!firstName || !surname) return;
@@ -47,7 +48,8 @@ export default function PatientsPage() {
       surname,
       dateOfBirth: dateOfBirth || null,
       accountNumber: accountNumber || null,
-      billingType
+      billingType,
+      medicalAidName: billingType === 'medical_aid' ? (medicalAidName || null) : null
     }, {
       onSuccess: () => {
         setIsDialogOpen(false);
@@ -56,6 +58,7 @@ export default function PatientsPage() {
         setDateOfBirth("");
         setAccountNumber("");
         setBillingType("medical_aid");
+        setMedicalAidName("");
         
         toast({
           title: "Patient Added",
@@ -162,8 +165,21 @@ export default function PatientsPage() {
                   <SelectContent>
                     <SelectItem value="medical_aid">Medical Aid</SelectItem>
                     <SelectItem value="private">Private</SelectItem>
+                    <SelectItem value="private_cash">Private Cash</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="medicalAidName">Medical Aid Name</Label>
+                <Input 
+                  id="medicalAidName" 
+                  value={medicalAidName} 
+                  onChange={(e) => setMedicalAidName(e.target.value)} 
+                  placeholder={billingType === 'medical_aid' ? "e.g. Discovery, Bonitas" : "N/A for private billing"}
+                  disabled={billingType !== 'medical_aid'}
+                  className={billingType !== 'medical_aid' ? 'bg-muted cursor-not-allowed' : ''}
+                  data-testid="input-medical-aid-name"
+                />
               </div>
             </div>
             <DialogFooter>
@@ -209,14 +225,19 @@ export default function PatientsPage() {
                   <Hash className="mr-2 h-4 w-4 text-primary/70" />
                   {patient.accountNumber || 'N/A'}
                 </div>
-                <div className="flex items-center">
+                <div className="flex items-center gap-2">
                   <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${
                     patient.billingType === 'private' 
                       ? 'bg-purple-100 text-purple-800' 
+                      : patient.billingType === 'private_cash'
+                      ? 'bg-green-100 text-green-800'
                       : 'bg-blue-100 text-blue-800'
                   }`}>
-                    {patient.billingType === 'private' ? 'Private' : 'Medical Aid'}
+                    {patient.billingType === 'private' ? 'Private' : patient.billingType === 'private_cash' ? 'Private Cash' : 'Medical Aid'}
                   </span>
+                  {patient.billingType === 'medical_aid' && patient.medicalAidName && (
+                    <span className="text-xs text-muted-foreground">({patient.medicalAidName})</span>
+                  )}
                 </div>
               </div>
             </CardContent>
