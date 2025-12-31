@@ -38,13 +38,15 @@ export default function SessionsPage() {
   const [sessionDate, setSessionDate] = useState(format(new Date(), "yyyy-MM-dd"));
   const [sessionTime, setSessionTime] = useState("09:00");
   const [sessionNotes, setSessionNotes] = useState("");
+  const [discountPercent, setDiscountPercent] = useState<number>(0);
 
   // Fetch billing codes based on selected type
   const { data: billingCodes = [] } = useBillingCodesByType(selectedBillingType);
 
-  // Reset selected code when billing type changes
+  // Reset selected code and discount when billing type changes
   useEffect(() => {
     setSelectedCodeId("");
+    setDiscountPercent(0);
   }, [selectedBillingType]);
 
   // Use first user as current user (in a real app, this would come from auth)
@@ -66,7 +68,8 @@ export default function SessionsPage() {
       date: sessionDate,
       time: sessionTime,
       status: 'captured',
-      notes: sessionNotes || null
+      notes: sessionNotes || null,
+      discountPercent: (selectedBillingType === 'private' || selectedBillingType === 'private_cash') ? discountPercent : 0
     }, {
       onSuccess: () => {
         setIsDialogOpen(false);
@@ -74,10 +77,11 @@ export default function SessionsPage() {
         setSelectedCodeId("");
         setSessionNotes("");
         setSelectedBillingType("medical_aid");
+        setDiscountPercent(0);
         
         toast({
           title: "Session Captured",
-          description: `Successfully captured ${selectedBillingType === 'private' ? 'private' : 'medical aid'} session for ${patient.firstName} ${patient.surname}`,
+          description: `Successfully captured ${selectedBillingType === 'private' ? 'private' : selectedBillingType === 'private_cash' ? 'private cash' : 'medical aid'} session for ${patient.firstName} ${patient.surname}`,
         });
       },
       onError: () => {
@@ -175,6 +179,27 @@ export default function SessionsPage() {
                   </SelectContent>
                 </Select>
               </div>
+              {(selectedBillingType === 'private' || selectedBillingType === 'private_cash') && (
+                <div className="grid gap-2">
+                  <Label htmlFor="discount">Additional Discount (%)</Label>
+                  <Input
+                    id="discount"
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={discountPercent}
+                    onChange={(e) => {
+                      const val = e.target.value === '' ? 0 : Math.max(0, Math.min(100, parseInt(e.target.value) || 0));
+                      setDiscountPercent(val);
+                    }}
+                    placeholder="0"
+                    data-testid="input-discount"
+                  />
+                  {selectedBillingType === 'private_cash' && (
+                    <p className="text-xs text-muted-foreground">Private cash includes automatic 10% discount</p>
+                  )}
+                </div>
+              )}
               <div className="grid gap-2">
                 <Label htmlFor="code">Tariff Code</Label>
                 <Select value={selectedCodeId} onValueChange={setSelectedCodeId}>
@@ -283,7 +308,16 @@ export default function SessionsPage() {
                         {session.status.charAt(0).toUpperCase() + session.status.slice(1)}
                       </span>
                     </td>
-                    <td className="p-4 align-middle text-right font-medium">R {session.price}</td>
+                    <td className="p-4 align-middle text-right font-medium">
+                      {session.finalPrice !== session.price ? (
+                        <div className="flex flex-col items-end">
+                          <span>R {session.finalPrice}</span>
+                          <span className="text-xs text-muted-foreground line-through">R {session.price}</span>
+                        </div>
+                      ) : (
+                        <span>R {session.price}</span>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>

@@ -54,6 +54,7 @@ export const sessions = pgTable("sessions", {
   date: text("date").notNull(),
   time: text("time").notNull(),
   notes: text("notes"),
+  discountPercent: integer("discount_percent").default(0),
   status: sessionStatusEnum("status").notNull().default('captured'),
   createdAt: timestamp("created_at").defaultNow(),
 });
@@ -77,7 +78,9 @@ export const sessionsRelations = relations(sessions, ({ one }) => ({
 export const insertUserSchema = createInsertSchema(users).omit({ id: true });
 export const insertPatientSchema = createInsertSchema(patients).omit({ id: true });
 export const insertBillingCodeSchema = createInsertSchema(billingCodes).omit({ id: true });
-export const insertSessionSchema = createInsertSchema(sessions).omit({ id: true, createdAt: true });
+export const insertSessionSchema = createInsertSchema(sessions).omit({ id: true, createdAt: true }).extend({
+  discountPercent: z.number().min(0).max(100).optional().default(0)
+});
 
 // Types
 export type User = typeof users.$inferSelect;

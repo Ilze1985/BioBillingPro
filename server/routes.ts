@@ -317,13 +317,25 @@ export async function registerRoutes(
         const practitioner = users.find(u => u.id === session.practitionerId);
         const patient = patients.find(p => p.id === session.patientId);
         const billingCode = codes.find(c => c.id === session.billingCodeId);
+        const basePrice = billingCode?.price || 0;
+        
+        // Calculate final price with discounts
+        let totalDiscountPercent = session.discountPercent || 0;
+        // Private cash has a fixed 10% discount
+        if (session.billingType === 'private_cash') {
+          totalDiscountPercent += 10;
+        }
+        // Clamp discount to valid range
+        totalDiscountPercent = Math.max(0, Math.min(100, totalDiscountPercent));
+        const finalPrice = basePrice > 0 ? Math.round(basePrice * (1 - totalDiscountPercent / 100)) : 0;
 
         return {
           ...session,
           practitionerName: practitioner?.name || 'Unknown',
           patientName: patient ? `${patient.firstName} ${patient.surname}` : 'Unknown',
           billingCode: billingCode?.code || 'Unknown',
-          price: billingCode?.price || 0
+          price: basePrice,
+          finalPrice: finalPrice
         };
       });
 

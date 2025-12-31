@@ -37,6 +37,7 @@ export interface Session {
   date: string;
   time: string;
   notes: string | null;
+  discountPercent: number | null;
   status: 'captured' | 'invoiced' | 'paid';
   createdAt: Date | null;
 }
@@ -46,6 +47,7 @@ export interface EnrichedSession extends Session {
   patientName: string;
   billingCode: string;
   price: number;
+  finalPrice: number;
 }
 
 // API Functions
