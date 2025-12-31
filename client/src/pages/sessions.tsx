@@ -40,7 +40,7 @@ export default function SessionsPage() {
   const [sessionTime, setSessionTime] = useState("09:00");
   const [timeNotApplicable, setTimeNotApplicable] = useState(false);
   const [sessionNotes, setSessionNotes] = useState("");
-  const [discountPercent, setDiscountPercent] = useState<number>(0);
+  const [discountAmount, setDiscountAmount] = useState<number>(0);
 
   // Fetch billing codes based on selected type
   // Private and private_cash share the same tariff codes
@@ -50,7 +50,7 @@ export default function SessionsPage() {
   // Reset selected codes and discount when billing type changes
   useEffect(() => {
     setSelectedCodeIds([]);
-    setDiscountPercent(0);
+    setDiscountAmount(0);
   }, [selectedBillingType]);
 
   const handleSave = async () => {
@@ -73,7 +73,7 @@ export default function SessionsPage() {
         time: timeNotApplicable ? 'N/A' : sessionTime,
         status: 'captured',
         notes: sessionNotes || null,
-        discountPercent: (selectedBillingType === 'private' || selectedBillingType === 'private_cash') ? discountPercent : 0
+        discountPercent: (selectedBillingType === 'private' || selectedBillingType === 'private_cash') ? discountAmount : 0
       });
       
       setIsDialogOpen(false);
@@ -82,7 +82,7 @@ export default function SessionsPage() {
       setSelectedCodeIds([]);
       setSessionNotes("");
       setSelectedBillingType("medical_aid");
-      setDiscountPercent(0);
+      setDiscountAmount(0);
       setTimeNotApplicable(false);
       setSessionTime("09:00");
       
@@ -213,22 +213,21 @@ export default function SessionsPage() {
               </div>
               {(selectedBillingType === 'private' || selectedBillingType === 'private_cash') && (
                 <div className="grid gap-2">
-                  <Label htmlFor="discount">Additional Discount (%)</Label>
+                  <Label htmlFor="discount">Additional Discount (R)</Label>
                   <Input
                     id="discount"
                     type="number"
                     min="0"
-                    max="100"
-                    value={discountPercent}
+                    value={discountAmount}
                     onChange={(e) => {
-                      const val = e.target.value === '' ? 0 : Math.max(0, Math.min(100, parseInt(e.target.value) || 0));
-                      setDiscountPercent(val);
+                      const val = e.target.value === '' ? 0 : Math.max(0, parseInt(e.target.value) || 0);
+                      setDiscountAmount(val);
                     }}
                     placeholder="0"
                     data-testid="input-discount"
                   />
                   {selectedBillingType === 'private_cash' && (
-                    <p className="text-xs text-muted-foreground">Private cash includes automatic 10% discount</p>
+                    <p className="text-xs text-muted-foreground">Private cash includes automatic 10% discount (rounded to nearest R10)</p>
                   )}
                 </div>
               )}
@@ -264,11 +263,11 @@ export default function SessionsPage() {
                   
                   if (selectedBillingType === 'private_cash') {
                     finalPrice = Math.round(totalPrice * 0.9 / 10) * 10;
-                    if (discountPercent > 0) {
-                      finalPrice = Math.round(finalPrice * (1 - discountPercent / 100));
+                    if (discountAmount > 0) {
+                      finalPrice = Math.max(0, finalPrice - discountAmount);
                     }
-                  } else if (selectedBillingType === 'private' && discountPercent > 0) {
-                    finalPrice = Math.round(totalPrice * (1 - discountPercent / 100));
+                  } else if (selectedBillingType === 'private' && discountAmount > 0) {
+                    finalPrice = Math.max(0, totalPrice - discountAmount);
                   }
                   
                   return (

@@ -326,22 +326,20 @@ export async function registerRoutes(
         const totalPrice = sessionCodes.reduce((sum, c) => sum + (c?.price || 0), 0);
         
         // Calculate final price with discounts
-        let totalDiscountPercent = session.discountPercent || 0;
+        const additionalDiscount = session.discountPercent || 0; // Now stores R-value, not percentage
         let finalPrice = totalPrice;
         
         // Private cash has a fixed 10% discount, rounded to nearest R10
         if (session.billingType === 'private_cash') {
           const discountedPrice = totalPrice * 0.9;
           finalPrice = Math.round(discountedPrice / 10) * 10;
-          // Apply additional discount on top if any
-          if (totalDiscountPercent > 0) {
-            totalDiscountPercent = Math.max(0, Math.min(100, totalDiscountPercent));
-            finalPrice = Math.round(finalPrice * (1 - totalDiscountPercent / 100));
+          // Apply additional R-value discount on top if any
+          if (additionalDiscount > 0) {
+            finalPrice = Math.max(0, finalPrice - additionalDiscount);
           }
-        } else if (totalDiscountPercent > 0) {
-          // For private billing with additional discount only
-          totalDiscountPercent = Math.max(0, Math.min(100, totalDiscountPercent));
-          finalPrice = totalPrice > 0 ? Math.round(totalPrice * (1 - totalDiscountPercent / 100)) : 0;
+        } else if (additionalDiscount > 0) {
+          // For private billing with additional R-value discount only
+          finalPrice = Math.max(0, totalPrice - additionalDiscount);
         }
 
         return {
