@@ -27,37 +27,59 @@ export async function seedDatabase() {
       role: "practitioner"
     });
 
-    // Create patients
+    // Create patients with new schema
     const patient1 = await storage.createPatient({
-      name: "Alice Johnson",
-      email: "alice@example.com",
-      phone: "082 123 4567",
-      medicalAid: "Discovery",
-      medicalAidNumber: "123456789"
+      firstName: "Alice",
+      surname: "Johnson",
+      dateOfBirth: "1985-03-15",
+      accountNumber: "ACC001",
+      billingType: "medical_aid",
+      medicalAidName: "Discovery"
     });
 
     const patient2 = await storage.createPatient({
-      name: "Bob Williams",
-      email: "bob@example.com",
-      phone: "083 987 6543",
-      medicalAid: "Momentum",
-      medicalAidNumber: "987654321"
+      firstName: "Bob",
+      surname: "Williams",
+      dateOfBirth: "1990-07-22",
+      accountNumber: "ACC002",
+      billingType: "medical_aid",
+      medicalAidName: "Momentum"
     });
 
     const patient3 = await storage.createPatient({
-      name: "Charlie Brown",
-      email: "charlie@example.com",
-      phone: "072 345 6789",
-      medicalAid: "Bonitas",
-      medicalAidNumber: "456789123"
+      firstName: "Charlie",
+      surname: "Brown",
+      dateOfBirth: "1978-11-08",
+      accountNumber: "ACC003",
+      billingType: "private",
+      medicalAidName: null
     });
 
     const patient4 = await storage.createPatient({
-      name: "Diana Prince",
-      email: "diana@example.com",
-      phone: "084 567 8901",
-      medicalAid: "Discovery",
-      medicalAidNumber: "789123456"
+      firstName: "Diana",
+      surname: "Prince",
+      dateOfBirth: "1992-05-30",
+      accountNumber: "ACC004",
+      billingType: "medical_aid",
+      medicalAidName: "Bonitas"
+    });
+
+    const patient5 = await storage.createPatient({
+      firstName: "Edward",
+      surname: "Thompson",
+      dateOfBirth: "1988-01-12",
+      accountNumber: "ACC005",
+      billingType: "private_cash",
+      medicalAidName: null
+    });
+
+    const patient6 = await storage.createPatient({
+      firstName: "Fiona",
+      surname: "Green",
+      dateOfBirth: "1995-09-25",
+      accountNumber: "ACC006",
+      billingType: "medical_aid",
+      medicalAidName: "Gems"
     });
 
     // Create Medical Aid billing codes
@@ -89,7 +111,7 @@ export async function seedDatabase() {
       billingType: "medical_aid"
     });
 
-    // Create Private billing codes (typically different rates)
+    // Create Private billing codes
     const pvtCode1 = await storage.createBillingCode({
       code: "PVT-001",
       description: "Initial Consultation (60min)",
@@ -111,37 +133,60 @@ export async function seedDatabase() {
       billingType: "private"
     });
 
-    const pvtCode4 = await storage.createBillingCode({
-      code: "PVT-004",
-      description: "Isokinetic Testing",
-      price: 1400,
-      billingType: "private"
+    // Create Private Cash billing codes
+    const cashCode1 = await storage.createBillingCode({
+      code: "CASH-001",
+      description: "Cash Session (60min)",
+      price: 800,
+      billingType: "private_cash"
     });
 
-    // Create sample sessions (using medical aid codes)
-    const patients = [patient1, patient2, patient3, patient4];
-    const codes = [maCode1, maCode2, maCode3];
+    const cashCode2 = await storage.createBillingCode({
+      code: "CASH-002",
+      description: "Cash Session (30min)",
+      price: 450,
+      billingType: "private_cash"
+    });
+
+    // Create sample sessions
+    const patients = [patient1, patient2, patient3, patient4, patient5, patient6];
+    const maCodes = [maCode1, maCode2, maCode3];
+    const pvtCodes = [pvtCode1, pvtCode2, pvtCode3];
+    const cashCodes = [cashCode1, cashCode2];
     const practitioners = [admin, practitioner];
 
     const today = new Date();
     
-    for (let i = 0; i < 15; i++) {
+    for (let i = 0; i < 20; i++) {
       const date = new Date(today);
-      date.setDate(date.getDate() - (i % 7));
+      date.setDate(date.getDate() - (i % 14));
       
       const practitionerItem = practitioners[i % 2];
-      const patient = patients[i % 4];
-      const code = codes[i % 3];
+      const patient = patients[i % 6];
+      
+      let code;
+      let billingType: 'medical_aid' | 'private' | 'private_cash';
+      
+      if (patient.billingType === 'medical_aid') {
+        code = maCodes[i % 3];
+        billingType = 'medical_aid';
+      } else if (patient.billingType === 'private') {
+        code = pvtCodes[i % 3];
+        billingType = 'private';
+      } else {
+        code = cashCodes[i % 2];
+        billingType = 'private_cash';
+      }
 
       await storage.createSession({
         practitionerId: practitionerItem.id,
         patientId: patient.id,
         billingCodeId: code.id,
-        billingType: "medical_aid",
+        billingType: billingType,
         date: date.toISOString().split('T')[0],
         time: `${9 + (i % 8)}:00`,
-        status: i > 10 ? 'captured' : 'invoiced',
-        notes: i % 3 === 0 ? 'Patient complaining of lower back pain.' : undefined
+        status: i > 12 ? 'captured' : i > 6 ? 'invoiced' : 'paid',
+        notes: i % 4 === 0 ? 'Patient progressing well with treatment plan.' : null
       });
     }
 
