@@ -321,13 +321,22 @@ export async function registerRoutes(
         
         // Calculate final price with discounts
         let totalDiscountPercent = session.discountPercent || 0;
-        // Private cash has a fixed 10% discount
+        let finalPrice = basePrice;
+        
+        // Private cash has a fixed 10% discount, rounded to nearest R10
         if (session.billingType === 'private_cash') {
-          totalDiscountPercent += 10;
+          const discountedPrice = basePrice * 0.9;
+          finalPrice = Math.round(discountedPrice / 10) * 10;
+          // Apply additional discount on top if any
+          if (totalDiscountPercent > 0) {
+            totalDiscountPercent = Math.max(0, Math.min(100, totalDiscountPercent));
+            finalPrice = Math.round(finalPrice * (1 - totalDiscountPercent / 100));
+          }
+        } else if (totalDiscountPercent > 0) {
+          // For private billing with additional discount only
+          totalDiscountPercent = Math.max(0, Math.min(100, totalDiscountPercent));
+          finalPrice = basePrice > 0 ? Math.round(basePrice * (1 - totalDiscountPercent / 100)) : 0;
         }
-        // Clamp discount to valid range
-        totalDiscountPercent = Math.max(0, Math.min(100, totalDiscountPercent));
-        const finalPrice = basePrice > 0 ? Math.round(basePrice * (1 - totalDiscountPercent / 100)) : 0;
 
         return {
           ...session,
