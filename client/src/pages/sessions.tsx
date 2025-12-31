@@ -32,6 +32,7 @@ export default function SessionsPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
   // Form State
+  const [selectedPractitionerId, setSelectedPractitionerId] = useState("");
   const [selectedPatientId, setSelectedPatientId] = useState("");
   const [selectedCodeIds, setSelectedCodeIds] = useState<string[]>([]);
   const [selectedBillingType, setSelectedBillingType] = useState<BillingType>("medical_aid");
@@ -50,11 +51,10 @@ export default function SessionsPage() {
     setDiscountPercent(0);
   }, [selectedBillingType]);
 
-  // Use first user as current user (in a real app, this would come from auth)
-  const currentUser = users[0];
-
   const handleSave = async () => {
-    if (!selectedPatientId || selectedCodeIds.length === 0 || !currentUser) return;
+    if (!selectedPractitionerId || !selectedPatientId || selectedCodeIds.length === 0) return;
+
+    const practitionerId = parseInt(selectedPractitionerId);
 
     const patient = patients.find(p => p.id === parseInt(selectedPatientId));
     if (!patient) return;
@@ -63,7 +63,7 @@ export default function SessionsPage() {
 
     try {
       await createSessionMutation.mutateAsync({
-        practitionerId: currentUser.id,
+        practitionerId: practitionerId,
         patientId: patient.id,
         billingCodeIds: codeIds,
         billingType: selectedBillingType,
@@ -75,6 +75,7 @@ export default function SessionsPage() {
       });
       
       setIsDialogOpen(false);
+      setSelectedPractitionerId("");
       setSelectedPatientId("");
       setSelectedCodeIds([]);
       setSessionNotes("");
@@ -133,6 +134,19 @@ export default function SessionsPage() {
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
+              <div className="grid gap-2">
+                <Label htmlFor="practitioner">Practitioner</Label>
+                <Select value={selectedPractitionerId} onValueChange={setSelectedPractitionerId}>
+                  <SelectTrigger id="practitioner" data-testid="select-practitioner">
+                    <SelectValue placeholder="Select practitioner" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {users.map(u => (
+                      <SelectItem key={u.id} value={u.id.toString()}>{u.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
               <div className="grid gap-2">
                 <Label htmlFor="patient">Patient</Label>
                 <Select value={selectedPatientId} onValueChange={setSelectedPatientId}>
