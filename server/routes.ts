@@ -246,10 +246,13 @@ export async function registerRoutes(
 
   app.post("/api/sessions", async (req, res) => {
     try {
+      console.log("Session create request body:", JSON.stringify(req.body));
       const sessionData = insertSessionSchema.parse(req.body);
+      console.log("Parsed session data:", JSON.stringify(sessionData));
       const session = await storage.createSession(sessionData);
       res.status(201).json(session);
     } catch (error) {
+      console.error("Session creation error:", error);
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid session data", errors: error.errors });
       }
