@@ -21,23 +21,32 @@ export interface IStorage {
   getUserByEmail(email: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   getAllUsers(): Promise<User[]>;
+  updateUser(id: number, data: Partial<InsertUser>): Promise<User | undefined>;
+  deleteUser(id: number): Promise<boolean>;
 
   // Patients
   getPatient(id: number): Promise<Patient | undefined>;
   getAllPatients(): Promise<Patient[]>;
   createPatient(patient: InsertPatient): Promise<Patient>;
+  updatePatient(id: number, data: Partial<InsertPatient>): Promise<Patient | undefined>;
+  deletePatient(id: number): Promise<boolean>;
 
   // Billing Codes
   getBillingCode(id: number): Promise<BillingCode | undefined>;
   getAllBillingCodes(): Promise<BillingCode[]>;
   getBillingCodesByType(billingType: 'medical_aid' | 'private'): Promise<BillingCode[]>;
   createBillingCode(code: InsertBillingCode): Promise<BillingCode>;
+  updateBillingCode(id: number, data: Partial<InsertBillingCode>): Promise<BillingCode | undefined>;
+  deleteBillingCode(id: number): Promise<boolean>;
+  bulkCreateBillingCodes(codes: InsertBillingCode[]): Promise<BillingCode[]>;
 
   // Sessions
   getSession(id: number): Promise<Session | undefined>;
   getAllSessions(): Promise<Session[]>;
   createSession(session: InsertSession): Promise<Session>;
+  updateSession(id: number, data: Partial<InsertSession>): Promise<Session | undefined>;
   updateSessionStatus(id: number, status: 'captured' | 'invoiced' | 'paid'): Promise<Session | undefined>;
+  deleteSession(id: number): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -61,6 +70,16 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(users);
   }
 
+  async updateUser(id: number, data: Partial<InsertUser>): Promise<User | undefined> {
+    const [user] = await db.update(users).set(data).where(eq(users.id, id)).returning();
+    return user || undefined;
+  }
+
+  async deleteUser(id: number): Promise<boolean> {
+    const result = await db.delete(users).where(eq(users.id, id));
+    return true;
+  }
+
   // Patients
   async getPatient(id: number): Promise<Patient | undefined> {
     const [patient] = await db.select().from(patients).where(eq(patients.id, id));
@@ -74,6 +93,16 @@ export class DatabaseStorage implements IStorage {
   async createPatient(insertPatient: InsertPatient): Promise<Patient> {
     const [patient] = await db.insert(patients).values(insertPatient).returning();
     return patient;
+  }
+
+  async updatePatient(id: number, data: Partial<InsertPatient>): Promise<Patient | undefined> {
+    const [patient] = await db.update(patients).set(data).where(eq(patients.id, id)).returning();
+    return patient || undefined;
+  }
+
+  async deletePatient(id: number): Promise<boolean> {
+    await db.delete(patients).where(eq(patients.id, id));
+    return true;
   }
 
   // Billing Codes
@@ -95,6 +124,22 @@ export class DatabaseStorage implements IStorage {
     return code;
   }
 
+  async updateBillingCode(id: number, data: Partial<InsertBillingCode>): Promise<BillingCode | undefined> {
+    const [code] = await db.update(billingCodes).set(data).where(eq(billingCodes.id, id)).returning();
+    return code || undefined;
+  }
+
+  async deleteBillingCode(id: number): Promise<boolean> {
+    await db.delete(billingCodes).where(eq(billingCodes.id, id));
+    return true;
+  }
+
+  async bulkCreateBillingCodes(codes: InsertBillingCode[]): Promise<BillingCode[]> {
+    if (codes.length === 0) return [];
+    const result = await db.insert(billingCodes).values(codes).returning();
+    return result;
+  }
+
   // Sessions
   async getSession(id: number): Promise<Session | undefined> {
     const [session] = await db.select().from(sessions).where(eq(sessions.id, id));
@@ -110,6 +155,11 @@ export class DatabaseStorage implements IStorage {
     return session;
   }
 
+  async updateSession(id: number, data: Partial<InsertSession>): Promise<Session | undefined> {
+    const [session] = await db.update(sessions).set(data).where(eq(sessions.id, id)).returning();
+    return session || undefined;
+  }
+
   async updateSessionStatus(id: number, status: 'captured' | 'invoiced' | 'paid'): Promise<Session | undefined> {
     const [session] = await db
       .update(sessions)
@@ -117,6 +167,11 @@ export class DatabaseStorage implements IStorage {
       .where(eq(sessions.id, id))
       .returning();
     return session || undefined;
+  }
+
+  async deleteSession(id: number): Promise<boolean> {
+    await db.delete(sessions).where(eq(sessions.id, id));
+    return true;
   }
 }
 

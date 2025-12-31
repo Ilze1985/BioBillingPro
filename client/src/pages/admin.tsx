@@ -1,16 +1,219 @@
+import { useState, useRef } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
-import { useSessions, useUsers, useBillingCodes } from "@/lib/api";
+import { 
+  useSessions, useUsers, useBillingCodes, usePatients,
+  useDeleteUser, useDeletePatient, useDeleteBillingCode, useDeleteSession,
+  useUpdateUser, useUpdatePatient, useUpdateBillingCode,
+  useCreateUser, useCreatePatient, useCreateBillingCode,
+  useImportBillingCodes,
+  type User, type Patient, type BillingCode, type BillingType
+} from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { Download } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Download, Plus, Pencil, Trash2, Upload, FileSpreadsheet } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogClose,
+} from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { useToast } from "@/hooks/use-toast";
 
 export default function AdminPage() {
   const { data: sessions = [], isLoading: loadingSessions } = useSessions();
   const { data: users = [], isLoading: loadingUsers } = useUsers();
   const { data: billingCodes = [], isLoading: loadingCodes } = useBillingCodes();
+  const { data: patients = [], isLoading: loadingPatients } = usePatients();
 
-  const isLoading = loadingSessions || loadingUsers || loadingCodes;
+  const deleteUserMutation = useDeleteUser();
+  const deletePatientMutation = useDeletePatient();
+  const deleteBillingCodeMutation = useDeleteBillingCode();
+  const deleteSessionMutation = useDeleteSession();
+  const updateUserMutation = useUpdateUser();
+  const updatePatientMutation = useUpdatePatient();
+  const updateBillingCodeMutation = useUpdateBillingCode();
+  const createUserMutation = useCreateUser();
+  const createPatientMutation = useCreatePatient();
+  const createBillingCodeMutation = useCreateBillingCode();
+  const importBillingCodesMutation = useImportBillingCodes();
+
+  const { toast } = useToast();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [deleteDialog, setDeleteDialog] = useState<{ type: string; id: number; name: string } | null>(null);
+  const [editUserDialog, setEditUserDialog] = useState<User | null>(null);
+  const [editPatientDialog, setEditPatientDialog] = useState<Patient | null>(null);
+  const [editCodeDialog, setEditCodeDialog] = useState<BillingCode | null>(null);
+  const [newUserDialog, setNewUserDialog] = useState(false);
+  const [newPatientDialog, setNewPatientDialog] = useState(false);
+  const [newCodeDialog, setNewCodeDialog] = useState(false);
+
+  const [formData, setFormData] = useState<Record<string, string>>({});
+
+  const isLoading = loadingSessions || loadingUsers || loadingCodes || loadingPatients;
+
+  const handleDelete = async () => {
+    if (!deleteDialog) return;
+    try {
+      if (deleteDialog.type === 'user') {
+        await deleteUserMutation.mutateAsync(deleteDialog.id);
+      } else if (deleteDialog.type === 'patient') {
+        await deletePatientMutation.mutateAsync(deleteDialog.id);
+      } else if (deleteDialog.type === 'code') {
+        await deleteBillingCodeMutation.mutateAsync(deleteDialog.id);
+      } else if (deleteDialog.type === 'session') {
+        await deleteSessionMutation.mutateAsync(deleteDialog.id);
+      }
+      toast({ title: "Deleted", description: `${deleteDialog.name} has been deleted.` });
+    } catch {
+      toast({ title: "Error", description: "Failed to delete.", variant: "destructive" });
+    }
+    setDeleteDialog(null);
+  };
+
+  const handleUpdateUser = async () => {
+    if (!editUserDialog) return;
+    try {
+      await updateUserMutation.mutateAsync({
+        id: editUserDialog.id,
+        data: { name: formData.name, email: formData.email, role: formData.role as 'admin' | 'practitioner' }
+      });
+      toast({ title: "Updated", description: "User has been updated." });
+      setEditUserDialog(null);
+    } catch {
+      toast({ title: "Error", description: "Failed to update user.", variant: "destructive" });
+    }
+  };
+
+  const handleCreateUser = async () => {
+    try {
+      await createUserMutation.mutateAsync({
+        name: formData.name,
+        email: formData.email,
+        password: formData.password,
+        role: formData.role as 'admin' | 'practitioner'
+      });
+      toast({ title: "Created", description: "User has been created." });
+      setNewUserDialog(false);
+      setFormData({});
+    } catch {
+      toast({ title: "Error", description: "Failed to create user.", variant: "destructive" });
+    }
+  };
+
+  const handleUpdatePatient = async () => {
+    if (!editPatientDialog) return;
+    try {
+      await updatePatientMutation.mutateAsync({
+        id: editPatientDialog.id,
+        data: { 
+          name: formData.name, 
+          email: formData.email || null, 
+          phone: formData.phone || null,
+          medicalAid: formData.medicalAid || null,
+          medicalAidNumber: formData.medicalAidNumber || null
+        }
+      });
+      toast({ title: "Updated", description: "Patient has been updated." });
+      setEditPatientDialog(null);
+    } catch {
+      toast({ title: "Error", description: "Failed to update patient.", variant: "destructive" });
+    }
+  };
+
+  const handleCreatePatient = async () => {
+    try {
+      await createPatientMutation.mutateAsync({
+        name: formData.name,
+        email: formData.email || null,
+        phone: formData.phone || null,
+        medicalAid: formData.medicalAid || null,
+        medicalAidNumber: formData.medicalAidNumber || null
+      });
+      toast({ title: "Created", description: "Patient has been created." });
+      setNewPatientDialog(false);
+      setFormData({});
+    } catch {
+      toast({ title: "Error", description: "Failed to create patient.", variant: "destructive" });
+    }
+  };
+
+  const handleUpdateCode = async () => {
+    if (!editCodeDialog) return;
+    try {
+      await updateBillingCodeMutation.mutateAsync({
+        id: editCodeDialog.id,
+        data: { 
+          code: formData.code, 
+          description: formData.description, 
+          price: parseFloat(formData.price),
+          billingType: formData.billingType as BillingType
+        }
+      });
+      toast({ title: "Updated", description: "Billing code has been updated." });
+      setEditCodeDialog(null);
+    } catch {
+      toast({ title: "Error", description: "Failed to update billing code.", variant: "destructive" });
+    }
+  };
+
+  const handleCreateCode = async () => {
+    try {
+      await createBillingCodeMutation.mutateAsync({
+        code: formData.code,
+        description: formData.description,
+        price: parseFloat(formData.price),
+        billingType: formData.billingType as BillingType
+      });
+      toast({ title: "Created", description: "Billing code has been created." });
+      setNewCodeDialog(false);
+      setFormData({});
+    } catch {
+      toast({ title: "Error", description: "Failed to create billing code.", variant: "destructive" });
+    }
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    try {
+      const result = await importBillingCodesMutation.mutateAsync(file);
+      toast({ 
+        title: "Import Successful", 
+        description: result.message 
+      });
+      if (result.errors && result.errors.length > 0) {
+        console.log('Import errors:', result.errors);
+      }
+    } catch (error) {
+      toast({ 
+        title: "Import Failed", 
+        description: error instanceof Error ? error.message : "Failed to import billing codes.",
+        variant: "destructive" 
+      });
+    }
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
 
   if (isLoading) {
     return (
@@ -38,6 +241,7 @@ export default function AdminPage() {
       <Tabs defaultValue="all-sessions" className="space-y-4">
         <TabsList>
           <TabsTrigger value="all-sessions" data-testid="tab-sessions">All Sessions</TabsTrigger>
+          <TabsTrigger value="patients" data-testid="tab-patients">Patients</TabsTrigger>
           <TabsTrigger value="staff" data-testid="tab-staff">Staff</TabsTrigger>
           <TabsTrigger value="codes" data-testid="tab-codes">Billing Codes</TabsTrigger>
         </TabsList>
@@ -63,6 +267,7 @@ export default function AdminPage() {
                       <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Code</th>
                       <th className="h-12 px-4 text-right align-middle font-medium text-muted-foreground">Amount</th>
                       <th className="h-12 px-4 text-right align-middle font-medium text-muted-foreground">Status</th>
+                      <th className="h-12 px-4 text-right align-middle font-medium text-muted-foreground">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="[&_tr:last-child]:border-0">
@@ -84,6 +289,86 @@ export default function AdminPage() {
                         <td className="p-4 align-middle">{session.billingCode}</td>
                         <td className="p-4 align-middle text-right">R {session.price}</td>
                         <td className="p-4 align-middle text-right capitalize">{session.status}</td>
+                        <td className="p-4 align-middle text-right">
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-8 w-8 text-destructive hover:text-destructive"
+                            onClick={() => setDeleteDialog({ type: 'session', id: session.id, name: `Session #${session.id}` })}
+                            data-testid={`button-delete-session-${session.id}`}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="patients" className="space-y-4">
+          <Card className="shadow-sm">
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle>Patient Management</CardTitle>
+                <CardDescription>Manage patient records and information.</CardDescription>
+              </div>
+              <Button className="gap-2" onClick={() => { setFormData({}); setNewPatientDialog(true); }} data-testid="button-add-patient">
+                <Plus className="h-4 w-4" />
+                Add Patient
+              </Button>
+            </CardHeader>
+            <CardContent>
+              <div className="rounded-md border">
+                <table className="w-full caption-bottom text-sm">
+                  <thead className="[&_tr]:border-b">
+                    <tr className="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted">
+                      <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Name</th>
+                      <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Email</th>
+                      <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Phone</th>
+                      <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Medical Aid</th>
+                      <th className="h-12 px-4 text-right align-middle font-medium text-muted-foreground">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="[&_tr:last-child]:border-0">
+                    {patients.map((patient) => (
+                      <tr key={patient.id} className="border-b transition-colors hover:bg-muted/50" data-testid={`row-patient-${patient.id}`}>
+                        <td className="p-4 align-middle font-medium">{patient.name}</td>
+                        <td className="p-4 align-middle">{patient.email || '-'}</td>
+                        <td className="p-4 align-middle">{patient.phone || '-'}</td>
+                        <td className="p-4 align-middle">{patient.medicalAid || '-'}</td>
+                        <td className="p-4 align-middle text-right">
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-8 w-8"
+                            onClick={() => { 
+                              setFormData({ 
+                                name: patient.name, 
+                                email: patient.email || '', 
+                                phone: patient.phone || '',
+                                medicalAid: patient.medicalAid || '',
+                                medicalAidNumber: patient.medicalAidNumber || ''
+                              }); 
+                              setEditPatientDialog(patient); 
+                            }}
+                            data-testid={`button-edit-patient-${patient.id}`}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-8 w-8 text-destructive hover:text-destructive"
+                            onClick={() => setDeleteDialog({ type: 'patient', id: patient.id, name: patient.name })}
+                            data-testid={`button-delete-patient-${patient.id}`}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -95,11 +380,15 @@ export default function AdminPage() {
 
         <TabsContent value="staff" className="space-y-4">
           <Card className="shadow-sm">
-            <CardHeader>
-              <CardTitle>Staff Management</CardTitle>
-              <CardDescription>
-                Manage practitioner access and roles.
-              </CardDescription>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle>Staff Management</CardTitle>
+                <CardDescription>Manage practitioner access and roles.</CardDescription>
+              </div>
+              <Button className="gap-2" onClick={() => { setFormData({ role: 'practitioner' }); setNewUserDialog(true); }} data-testid="button-add-user">
+                <Plus className="h-4 w-4" />
+                Add Staff
+              </Button>
             </CardHeader>
             <CardContent>
               <div className="rounded-md border">
@@ -123,7 +412,27 @@ export default function AdminPage() {
                           </span>
                         </td>
                         <td className="p-4 align-middle text-right">
-                          <Button variant="ghost" size="sm">Edit</Button>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-8 w-8"
+                            onClick={() => { 
+                              setFormData({ name: user.name, email: user.email, role: user.role }); 
+                              setEditUserDialog(user); 
+                            }}
+                            data-testid={`button-edit-user-${user.id}`}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-8 w-8 text-destructive hover:text-destructive"
+                            onClick={() => setDeleteDialog({ type: 'user', id: user.id, name: user.name })}
+                            data-testid={`button-delete-user-${user.id}`}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
                         </td>
                       </tr>
                     ))}
@@ -136,13 +445,46 @@ export default function AdminPage() {
 
         <TabsContent value="codes" className="space-y-4">
           <Card className="shadow-sm">
-            <CardHeader>
-              <CardTitle>Billing Codes</CardTitle>
-              <CardDescription>
-                Manage tariff codes and pricing.
-              </CardDescription>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle>Billing Codes</CardTitle>
+                <CardDescription>Manage tariff codes and pricing.</CardDescription>
+              </div>
+              <div className="flex gap-2">
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  accept=".xlsx,.xls,.csv"
+                  onChange={handleFileUpload}
+                  className="hidden"
+                  data-testid="input-file-import"
+                />
+                <Button 
+                  variant="outline" 
+                  className="gap-2"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={importBillingCodesMutation.isPending}
+                  data-testid="button-import-codes"
+                >
+                  <Upload className="h-4 w-4" />
+                  {importBillingCodesMutation.isPending ? 'Importing...' : 'Import from Excel'}
+                </Button>
+                <Button className="gap-2" onClick={() => { setFormData({ billingType: 'medical_aid' }); setNewCodeDialog(true); }} data-testid="button-add-code">
+                  <Plus className="h-4 w-4" />
+                  Add Code
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
+              <div className="mb-4 p-4 bg-muted/50 rounded-lg border border-dashed">
+                <div className="flex items-center gap-3">
+                  <FileSpreadsheet className="h-8 w-8 text-muted-foreground" />
+                  <div>
+                    <p className="text-sm font-medium">Excel Import Format</p>
+                    <p className="text-xs text-muted-foreground">Your Excel file should have columns: Code, Description, Price, Type (medical_aid or private)</p>
+                  </div>
+                </div>
+              </div>
               <div className="rounded-md border">
                 <table className="w-full caption-bottom text-sm">
                   <thead className="[&_tr]:border-b">
@@ -151,6 +493,7 @@ export default function AdminPage() {
                       <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Description</th>
                       <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Type</th>
                       <th className="h-12 px-4 text-right align-middle font-medium text-muted-foreground">Price</th>
+                      <th className="h-12 px-4 text-right align-middle font-medium text-muted-foreground">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="[&_tr:last-child]:border-0">
@@ -168,6 +511,34 @@ export default function AdminPage() {
                           </span>
                         </td>
                         <td className="p-4 align-middle text-right font-medium">R {code.price}</td>
+                        <td className="p-4 align-middle text-right">
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-8 w-8"
+                            onClick={() => { 
+                              setFormData({ 
+                                code: code.code, 
+                                description: code.description, 
+                                price: code.price.toString(),
+                                billingType: code.billingType
+                              }); 
+                              setEditCodeDialog(code); 
+                            }}
+                            data-testid={`button-edit-code-${code.id}`}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-8 w-8 text-destructive hover:text-destructive"
+                            onClick={() => setDeleteDialog({ type: 'code', id: code.id, name: code.code })}
+                            data-testid={`button-delete-code-${code.id}`}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -177,6 +548,237 @@ export default function AdminPage() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      <AlertDialog open={!!deleteDialog} onOpenChange={() => setDeleteDialog(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete {deleteDialog?.name}. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <Dialog open={!!editUserDialog} onOpenChange={() => setEditUserDialog(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Staff Member</DialogTitle>
+            <DialogDescription>Update the staff member's information.</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="name">Name</Label>
+              <Input id="name" value={formData.name || ''} onChange={(e) => setFormData({ ...formData, name: e.target.value })} data-testid="input-edit-user-name" />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="email">Email</Label>
+              <Input id="email" type="email" value={formData.email || ''} onChange={(e) => setFormData({ ...formData, email: e.target.value })} data-testid="input-edit-user-email" />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="role">Role</Label>
+              <Select value={formData.role || 'practitioner'} onValueChange={(v) => setFormData({ ...formData, role: v })}>
+                <SelectTrigger data-testid="select-edit-user-role"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="admin">Admin</SelectItem>
+                  <SelectItem value="practitioner">Practitioner</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose>
+            <Button onClick={handleUpdateUser} data-testid="button-save-user">Save Changes</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={newUserDialog} onOpenChange={setNewUserDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add Staff Member</DialogTitle>
+            <DialogDescription>Create a new staff member account.</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="name">Name</Label>
+              <Input id="name" value={formData.name || ''} onChange={(e) => setFormData({ ...formData, name: e.target.value })} data-testid="input-new-user-name" />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="email">Email</Label>
+              <Input id="email" type="email" value={formData.email || ''} onChange={(e) => setFormData({ ...formData, email: e.target.value })} data-testid="input-new-user-email" />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="password">Password</Label>
+              <Input id="password" type="password" value={formData.password || ''} onChange={(e) => setFormData({ ...formData, password: e.target.value })} data-testid="input-new-user-password" />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="role">Role</Label>
+              <Select value={formData.role || 'practitioner'} onValueChange={(v) => setFormData({ ...formData, role: v })}>
+                <SelectTrigger data-testid="select-new-user-role"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="admin">Admin</SelectItem>
+                  <SelectItem value="practitioner">Practitioner</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose>
+            <Button onClick={handleCreateUser} data-testid="button-create-user">Create User</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!editPatientDialog} onOpenChange={() => setEditPatientDialog(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Patient</DialogTitle>
+            <DialogDescription>Update the patient's information.</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="name">Name</Label>
+              <Input id="name" value={formData.name || ''} onChange={(e) => setFormData({ ...formData, name: e.target.value })} data-testid="input-edit-patient-name" />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="email">Email</Label>
+              <Input id="email" type="email" value={formData.email || ''} onChange={(e) => setFormData({ ...formData, email: e.target.value })} data-testid="input-edit-patient-email" />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="phone">Phone</Label>
+              <Input id="phone" value={formData.phone || ''} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} data-testid="input-edit-patient-phone" />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="medicalAid">Medical Aid</Label>
+              <Input id="medicalAid" value={formData.medicalAid || ''} onChange={(e) => setFormData({ ...formData, medicalAid: e.target.value })} data-testid="input-edit-patient-medical-aid" />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="medicalAidNumber">Medical Aid Number</Label>
+              <Input id="medicalAidNumber" value={formData.medicalAidNumber || ''} onChange={(e) => setFormData({ ...formData, medicalAidNumber: e.target.value })} data-testid="input-edit-patient-medical-aid-number" />
+            </div>
+          </div>
+          <DialogFooter>
+            <DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose>
+            <Button onClick={handleUpdatePatient} data-testid="button-save-patient">Save Changes</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={newPatientDialog} onOpenChange={setNewPatientDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add Patient</DialogTitle>
+            <DialogDescription>Create a new patient record.</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="name">Name</Label>
+              <Input id="name" value={formData.name || ''} onChange={(e) => setFormData({ ...formData, name: e.target.value })} data-testid="input-new-patient-name" />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="email">Email</Label>
+              <Input id="email" type="email" value={formData.email || ''} onChange={(e) => setFormData({ ...formData, email: e.target.value })} data-testid="input-new-patient-email" />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="phone">Phone</Label>
+              <Input id="phone" value={formData.phone || ''} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} data-testid="input-new-patient-phone" />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="medicalAid">Medical Aid</Label>
+              <Input id="medicalAid" value={formData.medicalAid || ''} onChange={(e) => setFormData({ ...formData, medicalAid: e.target.value })} data-testid="input-new-patient-medical-aid" />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="medicalAidNumber">Medical Aid Number</Label>
+              <Input id="medicalAidNumber" value={formData.medicalAidNumber || ''} onChange={(e) => setFormData({ ...formData, medicalAidNumber: e.target.value })} data-testid="input-new-patient-medical-aid-number" />
+            </div>
+          </div>
+          <DialogFooter>
+            <DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose>
+            <Button onClick={handleCreatePatient} data-testid="button-create-patient">Create Patient</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!editCodeDialog} onOpenChange={() => setEditCodeDialog(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Billing Code</DialogTitle>
+            <DialogDescription>Update the billing code details.</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="code">Code</Label>
+              <Input id="code" value={formData.code || ''} onChange={(e) => setFormData({ ...formData, code: e.target.value })} data-testid="input-edit-code-code" />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="description">Description</Label>
+              <Input id="description" value={formData.description || ''} onChange={(e) => setFormData({ ...formData, description: e.target.value })} data-testid="input-edit-code-description" />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="price">Price (R)</Label>
+              <Input id="price" type="number" value={formData.price || ''} onChange={(e) => setFormData({ ...formData, price: e.target.value })} data-testid="input-edit-code-price" />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="billingType">Billing Type</Label>
+              <Select value={formData.billingType || 'medical_aid'} onValueChange={(v) => setFormData({ ...formData, billingType: v })}>
+                <SelectTrigger data-testid="select-edit-code-type"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="medical_aid">Medical Aid</SelectItem>
+                  <SelectItem value="private">Private</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose>
+            <Button onClick={handleUpdateCode} data-testid="button-save-code">Save Changes</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={newCodeDialog} onOpenChange={setNewCodeDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add Billing Code</DialogTitle>
+            <DialogDescription>Create a new tariff code.</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="code">Code</Label>
+              <Input id="code" value={formData.code || ''} onChange={(e) => setFormData({ ...formData, code: e.target.value })} data-testid="input-new-code-code" />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="description">Description</Label>
+              <Input id="description" value={formData.description || ''} onChange={(e) => setFormData({ ...formData, description: e.target.value })} data-testid="input-new-code-description" />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="price">Price (R)</Label>
+              <Input id="price" type="number" value={formData.price || ''} onChange={(e) => setFormData({ ...formData, price: e.target.value })} data-testid="input-new-code-price" />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="billingType">Billing Type</Label>
+              <Select value={formData.billingType || 'medical_aid'} onValueChange={(v) => setFormData({ ...formData, billingType: v })}>
+                <SelectTrigger data-testid="select-new-code-type"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="medical_aid">Medical Aid</SelectItem>
+                  <SelectItem value="private">Private</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose>
+            <Button onClick={handleCreateCode} data-testid="button-create-code">Create Code</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AppLayout>
   );
 }

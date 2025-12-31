@@ -8,6 +8,13 @@ import {
   insertSessionSchema 
 } from "@shared/schema";
 import { z } from "zod";
+import multer from "multer";
+import * as XLSX from "xlsx";
+
+const upload = multer({ 
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 }
+});
 
 export async function registerRoutes(
   httpServer: Server,
@@ -17,7 +24,6 @@ export async function registerRoutes(
   // Users
   app.get("/api/users", async (_req, res) => {
     const users = await storage.getAllUsers();
-    // Exclude passwords from response
     const safeUsers = users.map(({ password, ...user }) => user);
     res.json(safeUsers);
   });
@@ -33,6 +39,35 @@ export async function registerRoutes(
         return res.status(400).json({ message: "Invalid user data", errors: error.errors });
       }
       res.status(500).json({ message: "Failed to create user" });
+    }
+  });
+
+  app.patch("/api/users/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const updateUserSchema = insertUserSchema.omit({ password: true }).partial();
+      const userData = updateUserSchema.parse(req.body);
+      const user = await storage.updateUser(id, userData);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      const { password, ...safeUser } = user;
+      res.json(safeUser);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid user data", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to update user" });
+    }
+  });
+
+  app.delete("/api/users/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await storage.deleteUser(id);
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete user" });
     }
   });
 
@@ -52,6 +87,33 @@ export async function registerRoutes(
         return res.status(400).json({ message: "Invalid patient data", errors: error.errors });
       }
       res.status(500).json({ message: "Failed to create patient" });
+    }
+  });
+
+  app.patch("/api/patients/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const patientData = insertPatientSchema.partial().parse(req.body);
+      const patient = await storage.updatePatient(id, patientData);
+      if (!patient) {
+        return res.status(404).json({ message: "Patient not found" });
+      }
+      res.json(patient);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid patient data", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to update patient" });
+    }
+  });
+
+  app.delete("/api/patients/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await storage.deletePatient(id);
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete patient" });
     }
   });
 
@@ -80,6 +142,102 @@ export async function registerRoutes(
     }
   });
 
+  app.patch("/api/billing-codes/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const codeData = insertBillingCodeSchema.partial().parse(req.body);
+      const code = await storage.updateBillingCode(id, codeData);
+      if (!code) {
+        return res.status(404).json({ message: "Billing code not found" });
+      }
+      res.json(code);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid billing code data", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to update billing code" });
+    }
+  });
+
+  app.delete("/api/billing-codes/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await storage.deleteBillingCode(id);
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete billing code" });
+    }
+  });
+
+  app.post("/api/billing-codes/import", upload.single('file'), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ message: "No file uploaded" });
+      }
+
+      const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
+      const sheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[sheetName];
+      const data = XLSX.utils.sheet_to_json(worksheet) as Record<string, unknown>[];
+
+      const codes: Array<{ code: string; description: string; price: number; billingType: 'medical_aid' | 'private' }> = [];
+      const errors: string[] = [];
+
+      data.forEach((row, index) => {
+        const code = row['Code'] || row['code'] || row['CODE'];
+        const description = row['Description'] || row['description'] || row['DESCRIPTION'];
+        const price = row['Price'] || row['price'] || row['PRICE'] || row['Amount'] || row['amount'];
+        const billingType = row['Type'] || row['type'] || row['TYPE'] || row['Billing Type'] || row['billing_type'];
+
+        if (!code || !description || price === undefined) {
+          errors.push(`Row ${index + 2}: Missing required fields (Code, Description, or Price)`);
+          return;
+        }
+
+        const parsedPrice = typeof price === 'number' ? price : parseFloat(String(price).replace(/[^0-9.]/g, ''));
+        if (isNaN(parsedPrice)) {
+          errors.push(`Row ${index + 2}: Invalid price value`);
+          return;
+        }
+
+        let parsedType: 'medical_aid' | 'private' = 'medical_aid';
+        if (billingType) {
+          const typeStr = String(billingType).toLowerCase().trim();
+          if (typeStr === 'private' || typeStr === 'pvt' || typeStr === 'p') {
+            parsedType = 'private';
+          } else if (typeStr === 'medical_aid' || typeStr === 'medical aid' || typeStr === 'med' || typeStr === 'm' || typeStr === 'ma') {
+            parsedType = 'medical_aid';
+          }
+        }
+
+        codes.push({
+          code: String(code).trim(),
+          description: String(description).trim(),
+          price: parsedPrice,
+          billingType: parsedType
+        });
+      });
+
+      if (codes.length === 0) {
+        return res.status(400).json({ 
+          message: "No valid billing codes found in file",
+          errors 
+        });
+      }
+
+      const createdCodes = await storage.bulkCreateBillingCodes(codes);
+
+      res.status(201).json({
+        message: `Successfully imported ${createdCodes.length} billing codes`,
+        imported: createdCodes.length,
+        errors: errors.length > 0 ? errors : undefined
+      });
+    } catch (error) {
+      console.error('Import error:', error);
+      res.status(500).json({ message: "Failed to import billing codes" });
+    }
+  });
+
   // Sessions
   app.get("/api/sessions", async (_req, res) => {
     const sessions = await storage.getAllSessions();
@@ -99,6 +257,23 @@ export async function registerRoutes(
     }
   });
 
+  app.patch("/api/sessions/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const sessionData = insertSessionSchema.partial().parse(req.body);
+      const session = await storage.updateSession(id, sessionData);
+      if (!session) {
+        return res.status(404).json({ message: "Session not found" });
+      }
+      res.json(session);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid session data", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to update session" });
+    }
+  });
+
   app.patch("/api/sessions/:id/status", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
@@ -115,6 +290,16 @@ export async function registerRoutes(
       res.json(session);
     } catch (error) {
       res.status(500).json({ message: "Failed to update session status" });
+    }
+  });
+
+  app.delete("/api/sessions/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await storage.deleteSession(id);
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete session" });
     }
   });
 

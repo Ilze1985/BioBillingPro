@@ -118,6 +118,80 @@ async function createUser(user: Omit<User, 'id'> & { password: string }): Promis
   return res.json();
 }
 
+async function updateUser(id: number, data: Partial<User>): Promise<User> {
+  const res = await fetch(`/api/users/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  });
+  if (!res.ok) throw new Error('Failed to update user');
+  return res.json();
+}
+
+async function deleteUser(id: number): Promise<void> {
+  const res = await fetch(`/api/users/${id}`, { method: 'DELETE' });
+  if (!res.ok) throw new Error('Failed to delete user');
+}
+
+async function updatePatient(id: number, data: Partial<Patient>): Promise<Patient> {
+  const res = await fetch(`/api/patients/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  });
+  if (!res.ok) throw new Error('Failed to update patient');
+  return res.json();
+}
+
+async function deletePatient(id: number): Promise<void> {
+  const res = await fetch(`/api/patients/${id}`, { method: 'DELETE' });
+  if (!res.ok) throw new Error('Failed to delete patient');
+}
+
+async function updateBillingCode(id: number, data: Partial<BillingCode>): Promise<BillingCode> {
+  const res = await fetch(`/api/billing-codes/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  });
+  if (!res.ok) throw new Error('Failed to update billing code');
+  return res.json();
+}
+
+async function deleteBillingCode(id: number): Promise<void> {
+  const res = await fetch(`/api/billing-codes/${id}`, { method: 'DELETE' });
+  if (!res.ok) throw new Error('Failed to delete billing code');
+}
+
+async function importBillingCodes(file: File): Promise<{ message: string; imported: number; errors?: string[] }> {
+  const formData = new FormData();
+  formData.append('file', file);
+  const res = await fetch('/api/billing-codes/import', {
+    method: 'POST',
+    body: formData
+  });
+  if (!res.ok) {
+    const error = await res.json();
+    throw new Error(error.message || 'Failed to import billing codes');
+  }
+  return res.json();
+}
+
+async function updateSession(id: number, data: Partial<Session>): Promise<Session> {
+  const res = await fetch(`/api/sessions/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  });
+  if (!res.ok) throw new Error('Failed to update session');
+  return res.json();
+}
+
+async function deleteSession(id: number): Promise<void> {
+  const res = await fetch(`/api/sessions/${id}`, { method: 'DELETE' });
+  if (!res.ok) throw new Error('Failed to delete session');
+}
+
 // React Query Hooks
 export function useUsers() {
   return useQuery({
@@ -190,6 +264,96 @@ export function useCreateUser() {
     mutationFn: createUser,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users'] });
+    },
+  });
+}
+
+export function useUpdateUser() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }: { id: number; data: Partial<User> }) => updateUser(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+    },
+  });
+}
+
+export function useDeleteUser() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: deleteUser,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+    },
+  });
+}
+
+export function useUpdatePatient() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }: { id: number; data: Partial<Patient> }) => updatePatient(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['patients'] });
+    },
+  });
+}
+
+export function useDeletePatient() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: deletePatient,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['patients'] });
+    },
+  });
+}
+
+export function useUpdateBillingCode() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }: { id: number; data: Partial<BillingCode> }) => updateBillingCode(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['billingCodes'] });
+    },
+  });
+}
+
+export function useDeleteBillingCode() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: deleteBillingCode,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['billingCodes'] });
+    },
+  });
+}
+
+export function useImportBillingCodes() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: importBillingCodes,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['billingCodes'] });
+    },
+  });
+}
+
+export function useUpdateSession() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }: { id: number; data: Partial<Session> }) => updateSession(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['sessions'] });
+    },
+  });
+}
+
+export function useDeleteSession() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: deleteSession,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['sessions'] });
     },
   });
 }
