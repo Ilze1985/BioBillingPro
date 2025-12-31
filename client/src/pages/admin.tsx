@@ -124,11 +124,11 @@ export default function AdminPage() {
       await updatePatientMutation.mutateAsync({
         id: editPatientDialog.id,
         data: { 
-          name: formData.name, 
-          email: formData.email || null, 
-          phone: formData.phone || null,
-          medicalAid: formData.medicalAid || null,
-          medicalAidNumber: formData.medicalAidNumber || null
+          firstName: formData.firstName, 
+          surname: formData.surname, 
+          dateOfBirth: formData.dateOfBirth || null,
+          accountNumber: formData.accountNumber || null,
+          billingType: formData.billingType as BillingType
         }
       });
       toast({ title: "Updated", description: "Patient has been updated." });
@@ -141,11 +141,11 @@ export default function AdminPage() {
   const handleCreatePatient = async () => {
     try {
       await createPatientMutation.mutateAsync({
-        name: formData.name,
-        email: formData.email || null,
-        phone: formData.phone || null,
-        medicalAid: formData.medicalAid || null,
-        medicalAidNumber: formData.medicalAidNumber || null
+        firstName: formData.firstName,
+        surname: formData.surname,
+        dateOfBirth: formData.dateOfBirth || null,
+        accountNumber: formData.accountNumber || null,
+        billingType: formData.billingType as BillingType
       });
       toast({ title: "Created", description: "Patient has been created." });
       setNewPatientDialog(false);
@@ -327,19 +327,27 @@ export default function AdminPage() {
                   <thead className="[&_tr]:border-b">
                     <tr className="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted">
                       <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Name</th>
-                      <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Email</th>
-                      <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Phone</th>
-                      <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Medical Aid</th>
+                      <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Date of Birth</th>
+                      <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Account No.</th>
+                      <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Billing Type</th>
                       <th className="h-12 px-4 text-right align-middle font-medium text-muted-foreground">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="[&_tr:last-child]:border-0">
                     {patients.map((patient) => (
                       <tr key={patient.id} className="border-b transition-colors hover:bg-muted/50" data-testid={`row-patient-${patient.id}`}>
-                        <td className="p-4 align-middle font-medium">{patient.name}</td>
-                        <td className="p-4 align-middle">{patient.email || '-'}</td>
-                        <td className="p-4 align-middle">{patient.phone || '-'}</td>
-                        <td className="p-4 align-middle">{patient.medicalAid || '-'}</td>
+                        <td className="p-4 align-middle font-medium">{patient.firstName} {patient.surname}</td>
+                        <td className="p-4 align-middle">{patient.dateOfBirth || '-'}</td>
+                        <td className="p-4 align-middle">{patient.accountNumber || '-'}</td>
+                        <td className="p-4 align-middle">
+                          <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                            patient.billingType === 'private' 
+                              ? 'bg-purple-100 text-purple-800' 
+                              : 'bg-blue-100 text-blue-800'
+                          }`}>
+                            {patient.billingType === 'private' ? 'Private' : 'Medical Aid'}
+                          </span>
+                        </td>
                         <td className="p-4 align-middle text-right">
                           <Button 
                             variant="ghost" 
@@ -347,11 +355,11 @@ export default function AdminPage() {
                             className="h-8 w-8"
                             onClick={() => { 
                               setFormData({ 
-                                name: patient.name, 
-                                email: patient.email || '', 
-                                phone: patient.phone || '',
-                                medicalAid: patient.medicalAid || '',
-                                medicalAidNumber: patient.medicalAidNumber || ''
+                                firstName: patient.firstName, 
+                                surname: patient.surname, 
+                                dateOfBirth: patient.dateOfBirth || '',
+                                accountNumber: patient.accountNumber || '',
+                                billingType: patient.billingType
                               }); 
                               setEditPatientDialog(patient); 
                             }}
@@ -363,7 +371,7 @@ export default function AdminPage() {
                             variant="ghost" 
                             size="icon" 
                             className="h-8 w-8 text-destructive hover:text-destructive"
-                            onClick={() => setDeleteDialog({ type: 'patient', id: patient.id, name: patient.name })}
+                            onClick={() => setDeleteDialog({ type: 'patient', id: patient.id, name: `${patient.firstName} ${patient.surname}` })}
                             data-testid={`button-delete-patient-${patient.id}`}
                           >
                             <Trash2 className="h-4 w-4" />
@@ -643,25 +651,33 @@ export default function AdminPage() {
             <DialogDescription>Update the patient's information.</DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="name">Name</Label>
-              <Input id="name" value={formData.name || ''} onChange={(e) => setFormData({ ...formData, name: e.target.value })} data-testid="input-edit-patient-name" />
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="firstName">First Name</Label>
+                <Input id="firstName" value={formData.firstName || ''} onChange={(e) => setFormData({ ...formData, firstName: e.target.value })} data-testid="input-edit-patient-firstname" />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="surname">Surname</Label>
+                <Input id="surname" value={formData.surname || ''} onChange={(e) => setFormData({ ...formData, surname: e.target.value })} data-testid="input-edit-patient-surname" />
+              </div>
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="email">Email</Label>
-              <Input id="email" type="email" value={formData.email || ''} onChange={(e) => setFormData({ ...formData, email: e.target.value })} data-testid="input-edit-patient-email" />
+              <Label htmlFor="dateOfBirth">Date of Birth</Label>
+              <Input id="dateOfBirth" type="date" value={formData.dateOfBirth || ''} onChange={(e) => setFormData({ ...formData, dateOfBirth: e.target.value })} data-testid="input-edit-patient-dob" />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="phone">Phone</Label>
-              <Input id="phone" value={formData.phone || ''} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} data-testid="input-edit-patient-phone" />
+              <Label htmlFor="accountNumber">Account Number</Label>
+              <Input id="accountNumber" value={formData.accountNumber || ''} onChange={(e) => setFormData({ ...formData, accountNumber: e.target.value })} data-testid="input-edit-patient-account" />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="medicalAid">Medical Aid</Label>
-              <Input id="medicalAid" value={formData.medicalAid || ''} onChange={(e) => setFormData({ ...formData, medicalAid: e.target.value })} data-testid="input-edit-patient-medical-aid" />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="medicalAidNumber">Medical Aid Number</Label>
-              <Input id="medicalAidNumber" value={formData.medicalAidNumber || ''} onChange={(e) => setFormData({ ...formData, medicalAidNumber: e.target.value })} data-testid="input-edit-patient-medical-aid-number" />
+              <Label htmlFor="billingType">Billing Type</Label>
+              <Select value={formData.billingType || 'medical_aid'} onValueChange={(v) => setFormData({ ...formData, billingType: v })}>
+                <SelectTrigger data-testid="select-edit-patient-billing-type"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="medical_aid">Medical Aid</SelectItem>
+                  <SelectItem value="private">Private</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
           <DialogFooter>
@@ -678,25 +694,33 @@ export default function AdminPage() {
             <DialogDescription>Create a new patient record.</DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="name">Name</Label>
-              <Input id="name" value={formData.name || ''} onChange={(e) => setFormData({ ...formData, name: e.target.value })} data-testid="input-new-patient-name" />
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="firstName">First Name</Label>
+                <Input id="firstName" value={formData.firstName || ''} onChange={(e) => setFormData({ ...formData, firstName: e.target.value })} data-testid="input-new-patient-firstname" />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="surname">Surname</Label>
+                <Input id="surname" value={formData.surname || ''} onChange={(e) => setFormData({ ...formData, surname: e.target.value })} data-testid="input-new-patient-surname" />
+              </div>
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="email">Email</Label>
-              <Input id="email" type="email" value={formData.email || ''} onChange={(e) => setFormData({ ...formData, email: e.target.value })} data-testid="input-new-patient-email" />
+              <Label htmlFor="dateOfBirth">Date of Birth</Label>
+              <Input id="dateOfBirth" type="date" value={formData.dateOfBirth || ''} onChange={(e) => setFormData({ ...formData, dateOfBirth: e.target.value })} data-testid="input-new-patient-dob" />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="phone">Phone</Label>
-              <Input id="phone" value={formData.phone || ''} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} data-testid="input-new-patient-phone" />
+              <Label htmlFor="accountNumber">Account Number</Label>
+              <Input id="accountNumber" value={formData.accountNumber || ''} onChange={(e) => setFormData({ ...formData, accountNumber: e.target.value })} data-testid="input-new-patient-account" />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="medicalAid">Medical Aid</Label>
-              <Input id="medicalAid" value={formData.medicalAid || ''} onChange={(e) => setFormData({ ...formData, medicalAid: e.target.value })} data-testid="input-new-patient-medical-aid" />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="medicalAidNumber">Medical Aid Number</Label>
-              <Input id="medicalAidNumber" value={formData.medicalAidNumber || ''} onChange={(e) => setFormData({ ...formData, medicalAidNumber: e.target.value })} data-testid="input-new-patient-medical-aid-number" />
+              <Label htmlFor="billingType">Billing Type</Label>
+              <Select value={formData.billingType || 'medical_aid'} onValueChange={(v) => setFormData({ ...formData, billingType: v })}>
+                <SelectTrigger data-testid="select-new-patient-billing-type"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="medical_aid">Medical Aid</SelectItem>
+                  <SelectItem value="private">Private</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
           <DialogFooter>

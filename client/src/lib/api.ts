@@ -12,11 +12,11 @@ export interface User {
 
 export interface Patient {
   id: number;
-  name: string;
-  email: string | null;
-  phone: string | null;
-  medicalAid: string | null;
-  medicalAidNumber: string | null;
+  firstName: string;
+  surname: string;
+  dateOfBirth: string | null;
+  accountNumber: string | null;
+  billingType: BillingType;
 }
 
 export interface BillingCode {

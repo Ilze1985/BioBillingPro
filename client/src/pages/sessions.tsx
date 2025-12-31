@@ -77,7 +77,7 @@ export default function SessionsPage() {
         
         toast({
           title: "Session Captured",
-          description: `Successfully captured ${selectedBillingType === 'private' ? 'private' : 'medical aid'} session for ${patient.name}`,
+          description: `Successfully captured ${selectedBillingType === 'private' ? 'private' : 'medical aid'} session for ${patient.firstName} ${patient.surname}`,
         });
       },
       onError: () => {
@@ -135,7 +135,7 @@ export default function SessionsPage() {
                   </SelectTrigger>
                   <SelectContent>
                     {patients.map(p => (
-                      <SelectItem key={p.id} value={p.id.toString()}>{p.name}</SelectItem>
+                      <SelectItem key={p.id} value={p.id.toString()}>{p.firstName} {p.surname}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>

@@ -21,11 +21,11 @@ export const usersRelations = relations(users, ({ many }) => ({
 
 export const patients = pgTable("patients", {
   id: serial("id").primaryKey(),
-  name: text("name").notNull(),
-  email: text("email"),
-  phone: text("phone"),
-  medicalAid: text("medical_aid"),
-  medicalAidNumber: text("medical_aid_number"),
+  firstName: text("first_name").notNull(),
+  surname: text("surname").notNull(),
+  dateOfBirth: text("date_of_birth"),
+  accountNumber: text("account_number"),
+  billingType: billingTypeEnum("billing_type").notNull().default('medical_aid'),
 });
 
 export const patientsRelations = relations(patients, ({ many }) => ({

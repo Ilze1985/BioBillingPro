@@ -321,7 +321,7 @@ export async function registerRoutes(
         return {
           ...session,
           practitionerName: practitioner?.name || 'Unknown',
-          patientName: patient?.name || 'Unknown',
+          patientName: patient ? `${patient.firstName} ${patient.surname}` : 'Unknown',
           billingCode: billingCode?.code || 'Unknown',
           price: billingCode?.price || 0
         };

@@ -1,11 +1,11 @@
 import { useState } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
-import { usePatients, useCreatePatient } from "@/lib/api";
+import { usePatients, useCreatePatient, BillingType } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Plus, Search, Mail, Phone, CreditCard } from "lucide-react";
+import { Plus, Search, Calendar, Hash } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -16,6 +16,13 @@ import {
   DialogFooter,
   DialogClose,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 
 export default function PatientsPage() {
@@ -26,34 +33,33 @@ export default function PatientsPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
-  // Form State
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState("");
-  const [medicalAid, setMedicalAid] = useState("");
-  const [medicalAidNumber, setMedicalAidNumber] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [surname, setSurname] = useState("");
+  const [dateOfBirth, setDateOfBirth] = useState("");
+  const [accountNumber, setAccountNumber] = useState("");
+  const [billingType, setBillingType] = useState<BillingType>("medical_aid");
 
   const handleSave = () => {
-    if (!name) return;
+    if (!firstName || !surname) return;
 
     createPatientMutation.mutate({
-      name,
-      email: email || null,
-      phone: phone || null,
-      medicalAid: medicalAid || null,
-      medicalAidNumber: medicalAidNumber || null
+      firstName,
+      surname,
+      dateOfBirth: dateOfBirth || null,
+      accountNumber: accountNumber || null,
+      billingType
     }, {
       onSuccess: () => {
         setIsDialogOpen(false);
-        setName("");
-        setEmail("");
-        setPhone("");
-        setMedicalAid("");
-        setMedicalAidNumber("");
+        setFirstName("");
+        setSurname("");
+        setDateOfBirth("");
+        setAccountNumber("");
+        setBillingType("medical_aid");
         
         toast({
           title: "Patient Added",
-          description: `${name} has been added to the database.`,
+          description: `${firstName} ${surname} has been added to the database.`,
         });
       },
       onError: () => {
@@ -66,10 +72,12 @@ export default function PatientsPage() {
     });
   };
 
-  const filteredPatients = patients.filter(patient => 
-    patient.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (patient.medicalAid && patient.medicalAid.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
+  const filteredPatients = patients.filter(patient => {
+    const fullName = `${patient.firstName || ''} ${patient.surname || ''}`.toLowerCase();
+    const searchLower = searchTerm.toLowerCase();
+    return fullName.includes(searchLower) ||
+      (patient.accountNumber && patient.accountNumber.toLowerCase().includes(searchLower));
+  });
 
   if (isLoading) {
     return (
@@ -103,60 +111,59 @@ export default function PatientsPage() {
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="firstName">First Name</Label>
+                  <Input 
+                    id="firstName" 
+                    value={firstName} 
+                    onChange={(e) => setFirstName(e.target.value)} 
+                    placeholder="e.g. John"
+                    data-testid="input-firstname"
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="surname">Surname</Label>
+                  <Input 
+                    id="surname" 
+                    value={surname} 
+                    onChange={(e) => setSurname(e.target.value)} 
+                    placeholder="e.g. Doe"
+                    data-testid="input-surname"
+                  />
+                </div>
+              </div>
               <div className="grid gap-2">
-                <Label htmlFor="name">Full Name</Label>
+                <Label htmlFor="dateOfBirth">Date of Birth</Label>
                 <Input 
-                  id="name" 
-                  value={name} 
-                  onChange={(e) => setName(e.target.value)} 
-                  placeholder="e.g. John Doe"
-                  data-testid="input-name"
+                  id="dateOfBirth" 
+                  type="date" 
+                  value={dateOfBirth} 
+                  onChange={(e) => setDateOfBirth(e.target.value)} 
+                  data-testid="input-dob"
                 />
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input 
-                    id="email" 
-                    type="email" 
-                    value={email} 
-                    onChange={(e) => setEmail(e.target.value)} 
-                    placeholder="john@example.com"
-                    data-testid="input-email"
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="phone">Phone</Label>
-                  <Input 
-                    id="phone" 
-                    value={phone} 
-                    onChange={(e) => setPhone(e.target.value)} 
-                    placeholder="082 123 4567"
-                    data-testid="input-phone"
-                  />
-                </div>
+              <div className="grid gap-2">
+                <Label htmlFor="accountNumber">Account Number</Label>
+                <Input 
+                  id="accountNumber" 
+                  value={accountNumber} 
+                  onChange={(e) => setAccountNumber(e.target.value)} 
+                  placeholder="e.g. ACC001"
+                  data-testid="input-account-number"
+                />
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="medicalAid">Medical Aid</Label>
-                  <Input 
-                    id="medicalAid" 
-                    value={medicalAid} 
-                    onChange={(e) => setMedicalAid(e.target.value)} 
-                    placeholder="Discovery"
-                    data-testid="input-medical-aid"
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="maNumber">Number</Label>
-                  <Input 
-                    id="maNumber" 
-                    value={medicalAidNumber} 
-                    onChange={(e) => setMedicalAidNumber(e.target.value)} 
-                    placeholder="123456789"
-                    data-testid="input-medical-aid-number"
-                  />
-                </div>
+              <div className="grid gap-2">
+                <Label htmlFor="billingType">Billing Type</Label>
+                <Select value={billingType} onValueChange={(v) => setBillingType(v as BillingType)}>
+                  <SelectTrigger id="billingType" data-testid="select-billing-type">
+                    <SelectValue placeholder="Select billing type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="medical_aid">Medical Aid</SelectItem>
+                    <SelectItem value="private">Private</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
             <DialogFooter>
@@ -187,24 +194,29 @@ export default function PatientsPage() {
         {filteredPatients.map((patient) => (
           <Card key={patient.id} className="shadow-sm hover:shadow-md transition-all cursor-pointer" data-testid={`card-patient-${patient.id}`}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-lg font-bold">{patient.name}</CardTitle>
+              <CardTitle className="text-lg font-bold">{patient.firstName} {patient.surname}</CardTitle>
               <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
-                {patient.name.charAt(0)}
+                {patient.firstName?.charAt(0) || '?'}
               </div>
             </CardHeader>
             <CardContent>
               <div className="space-y-3 mt-2">
                 <div className="flex items-center text-sm text-muted-foreground">
-                  <Mail className="mr-2 h-4 w-4 text-primary/70" />
-                  {patient.email || 'N/A'}
+                  <Calendar className="mr-2 h-4 w-4 text-primary/70" />
+                  {patient.dateOfBirth || 'N/A'}
                 </div>
                 <div className="flex items-center text-sm text-muted-foreground">
-                  <Phone className="mr-2 h-4 w-4 text-primary/70" />
-                  {patient.phone || 'N/A'}
+                  <Hash className="mr-2 h-4 w-4 text-primary/70" />
+                  {patient.accountNumber || 'N/A'}
                 </div>
-                <div className="flex items-center text-sm text-muted-foreground">
-                  <CreditCard className="mr-2 h-4 w-4 text-primary/70" />
-                  {patient.medicalAid || 'N/A'} {patient.medicalAidNumber ? `• ${patient.medicalAidNumber}` : ''}
+                <div className="flex items-center">
+                  <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                    patient.billingType === 'private' 
+                      ? 'bg-purple-100 text-purple-800' 
+                      : 'bg-blue-100 text-blue-800'
+                  }`}>
+                    {patient.billingType === 'private' ? 'Private' : 'Medical Aid'}
+                  </span>
                 </div>
               </div>
             </CardContent>
