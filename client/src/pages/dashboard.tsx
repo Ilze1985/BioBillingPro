@@ -34,13 +34,15 @@ export default function Dashboard() {
   const totalDailyRevenue = todaysSessions.reduce((acc, s) => acc + s.finalPrice, 0);
   const totalWeeklyRevenue = weeklySessions.reduce((acc, s) => acc + s.finalPrice, 0);
 
-  // Prepare chart data (Monthly view with weekly totals)
+  // Monthly revenue calculation
   const monthStart = startOfMonth(today);
   const monthEnd = endOfMonth(today);
   const monthSessions = sessions.filter(s => 
     isWithinInterval(parseISO(s.date), { start: monthStart, end: monthEnd })
   );
+  const totalMonthlyRevenue = monthSessions.reduce((acc, s) => acc + s.finalPrice, 0);
 
+  // Prepare chart data (Monthly view with weekly totals)
   const chartData = Array.from({ length: 5 }).map((_, i) => {
     const weekNum = i + 1;
     const weekStartDate = new Date(monthStart);
@@ -95,7 +97,7 @@ export default function Dashboard() {
         <p className="text-muted-foreground">Welcome back to your practice overview.</p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
         <Card className="shadow-sm hover:shadow-md transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Today's Revenue</CardTitle>
@@ -118,6 +120,19 @@ export default function Dashboard() {
             <div className="text-2xl font-bold" data-testid="text-weekly-revenue">R {totalWeeklyRevenue.toLocaleString()}</div>
             <p className="text-xs text-muted-foreground">
               {weeklySessions.length} sessions this week
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="shadow-sm hover:shadow-md transition-shadow bg-primary/5">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Monthly Total</CardTitle>
+            <CalendarDays className="h-4 w-4 text-primary" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-primary" data-testid="text-monthly-revenue">R {totalMonthlyRevenue.toLocaleString()}</div>
+            <p className="text-xs text-muted-foreground">
+              {monthSessions.length} sessions in {format(today, 'MMMM')}
             </p>
           </CardContent>
         </Card>
