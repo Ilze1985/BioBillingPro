@@ -288,6 +288,39 @@ export async function registerRoutes(
       
       console.log("Parsed session data:", JSON.stringify(sessionData));
       const session = await storage.createSession(sessionData);
+      
+      // Auto-create monthly billing statement when monthly session is captured
+      if (sessionData.billingFrequency === 'monthly') {
+        try {
+          // Find the financial period based on session date
+          const allPeriods = await storage.getAllFinancialPeriods();
+          const period = allPeriods.find(p => {
+            return session.date >= p.startDate && session.date <= p.endDate;
+          });
+          
+          if (period) {
+            // Calculate session total
+            const billingCodes = await storage.getAllBillingCodes();
+            const sessionTotal = (session.billingCodeIds || []).reduce((sum, codeId) => {
+              const code = billingCodes.find(c => c.id === codeId);
+              return sum + (code?.price || 0);
+            }, 0);
+            
+            // Create monthly billing statement linked to this session
+            await storage.createMonthlyBillingStatement({
+              patientId: session.patientId,
+              practitionerId: session.practitionerId,
+              financialPeriodId: period.id,
+              sessionId: session.id,
+              status: 'awaiting_review',
+              totalAmount: sessionTotal
+            });
+          }
+        } catch (statementError) {
+          console.error("Failed to create monthly billing statement:", statementError);
+        }
+      }
+      
       res.status(201).json(session);
     } catch (error) {
       console.error("Session creation error:", error);
