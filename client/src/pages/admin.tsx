@@ -570,13 +570,27 @@ export default function AdminPage() {
                   <tbody className="[&_tr:last-child]:border-0">
                     {[...billingCodes].sort((a, b) => {
                       // Sort order: medical_aid first, then private weekly, then private monthly
-                      const getOrder = (code: typeof a) => {
+                      const getTypeOrder = (code: typeof a) => {
                         if (code.billingType === 'medical_aid') return 0;
                         if ((code.billingType === 'private' || code.billingType === 'private_cash') && code.billingFrequency === 'weekly') return 1;
                         return 2; // monthly
                       };
-                      const orderDiff = getOrder(a) - getOrder(b);
-                      if (orderDiff !== 0) return orderDiff;
+                      const typeOrderDiff = getTypeOrder(a) - getTypeOrder(b);
+                      if (typeOrderDiff !== 0) return typeOrderDiff;
+                      
+                      // For monthly codes, use custom prefix ordering
+                      if (getTypeOrder(a) === 2 && getTypeOrder(b) === 2) {
+                        const prefixOrder = ['PVT8', 'PVT12', 'PEN8', 'PEN12', 'FA8', 'FA12', 'PFA8', 'PFA12'];
+                        const getMonthlyOrder = (code: string) => {
+                          for (let i = 0; i < prefixOrder.length; i++) {
+                            if (code.startsWith(prefixOrder[i])) return i;
+                          }
+                          return prefixOrder.length; // Other monthly codes at end
+                        };
+                        const monthlyOrderDiff = getMonthlyOrder(a.code) - getMonthlyOrder(b.code);
+                        if (monthlyOrderDiff !== 0) return monthlyOrderDiff;
+                      }
+                      
                       return a.code.localeCompare(b.code);
                     }).map((code) => (
                       <tr key={code.id} className="border-b transition-colors hover:bg-muted/50" data-testid={`row-code-${code.id}`}>
