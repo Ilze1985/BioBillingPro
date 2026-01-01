@@ -16,7 +16,15 @@ function getWeekNumber(sessionDate: string, periodStart: string): number {
   const diffTime = session.getTime() - start.getTime();
   const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
   const weekIndex = Math.floor(diffDays / 7);
-  return Math.min(Math.max(weekIndex, 0), 3) + 1;
+  return Math.max(weekIndex, 0) + 1;
+}
+
+function getWeekCount(periodStart: string, periodEnd: string): number {
+  const start = new Date(periodStart);
+  const end = new Date(periodEnd);
+  const diffTime = end.getTime() - start.getTime();
+  const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+  return Math.ceil((diffDays + 1) / 7);
 }
 
 function getWeekDates(periodStart: string, weekNumber: number): { monday: Date; friday: Date } {
@@ -78,26 +86,31 @@ export default function BillingPage() {
   }, [periodSessions]);
 
   const weeklyData = useMemo(() => {
-    if (!selectedPeriod) return [
-      { week: 1, sessions: [], total: 0, count: 0 },
-      { week: 2, sessions: [], total: 0, count: 0 },
-      { week: 3, sessions: [], total: 0, count: 0 },
-      { week: 4, sessions: [], total: 0, count: 0 },
-    ];
+    if (!selectedPeriod) {
+      return Array.from({ length: 4 }, (_, i) => ({
+        week: i + 1,
+        sessions: [] as typeof sessions,
+        total: 0,
+        count: 0,
+      }));
+    }
 
-    const weeks = [
-      { week: 1, sessions: [] as typeof sessions, total: 0, count: 0 },
-      { week: 2, sessions: [] as typeof sessions, total: 0, count: 0 },
-      { week: 3, sessions: [] as typeof sessions, total: 0, count: 0 },
-      { week: 4, sessions: [] as typeof sessions, total: 0, count: 0 },
-    ];
+    const weekCount = getWeekCount(selectedPeriod.startDate, selectedPeriod.endDate);
+    const weeks = Array.from({ length: weekCount }, (_, i) => ({
+      week: i + 1,
+      sessions: [] as typeof sessions,
+      total: 0,
+      count: 0,
+    }));
 
     weeklySessions.forEach(session => {
       const weekNum = getWeekNumber(session.date, selectedPeriod.startDate);
       const weekIndex = weekNum - 1;
-      weeks[weekIndex].sessions.push(session);
-      weeks[weekIndex].total += session.finalPrice;
-      weeks[weekIndex].count += 1;
+      if (weekIndex >= 0 && weekIndex < weeks.length) {
+        weeks[weekIndex].sessions.push(session);
+        weeks[weekIndex].total += session.finalPrice;
+        weeks[weekIndex].count += 1;
+      }
     });
 
     return weeks;
