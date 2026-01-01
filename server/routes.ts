@@ -298,24 +298,22 @@ export async function registerRoutes(
             return session.date >= p.startDate && session.date <= p.endDate;
           });
           
-          if (period) {
-            // Calculate session total
-            const billingCodes = await storage.getAllBillingCodes();
-            const sessionTotal = (session.billingCodeIds || []).reduce((sum, codeId) => {
-              const code = billingCodes.find(c => c.id === codeId);
-              return sum + (code?.price || 0);
-            }, 0);
-            
-            // Create monthly billing statement linked to this session
-            await storage.createMonthlyBillingStatement({
-              patientId: session.patientId,
-              practitionerId: session.practitionerId,
-              financialPeriodId: period.id,
-              sessionId: session.id,
-              status: 'awaiting_review',
-              totalAmount: sessionTotal
-            });
-          }
+          // Calculate session total
+          const billingCodes = await storage.getAllBillingCodes();
+          const sessionTotal = (session.billingCodeIds || []).reduce((sum, codeId) => {
+            const code = billingCodes.find(c => c.id === codeId);
+            return sum + (code?.price || 0);
+          }, 0);
+          
+          // Create monthly billing statement linked to this session (even without a period)
+          await storage.createMonthlyBillingStatement({
+            patientId: session.patientId,
+            practitionerId: session.practitionerId,
+            financialPeriodId: period?.id || null,
+            sessionId: session.id,
+            status: 'awaiting_review',
+            totalAmount: sessionTotal
+          });
         } catch (statementError) {
           console.error("Failed to create monthly billing statement:", statementError);
         }
