@@ -409,6 +409,7 @@ export default function PatientsPage() {
                 <th className="text-left py-3 px-4 font-semibold text-sm">Date of Birth</th>
                 <th className="text-left py-3 px-4 font-semibold text-sm">Practice Name</th>
                 <th className="text-left py-3 px-4 font-semibold text-sm">Billing Type</th>
+                <th className="text-center py-3 px-4 font-semibold text-sm">Active</th>
                 <th className="text-right py-3 px-4 font-semibold text-sm">Actions</th>
               </tr>
             </thead>
@@ -429,6 +430,27 @@ export default function PatientsPage() {
                     }`}>
                       {patient.billingType === 'private' ? 'Private' : patient.billingType === 'private_cash' ? 'Private Cash' : 'Medical Aid'}
                     </span>
+                  </td>
+                  <td className="py-3 px-4 text-center">
+                    <input
+                      type="checkbox"
+                      checked={patient.monthlyBillingActive === 'yes'}
+                      onChange={(e) => {
+                        updatePatientMutation.mutate({
+                          id: patient.id,
+                          data: { monthlyBillingActive: e.target.checked ? 'yes' : 'no' }
+                        }, {
+                          onSuccess: () => {
+                            toast({
+                              title: e.target.checked ? "Patient Activated" : "Patient Deactivated",
+                              description: `${patient.firstName} ${patient.surname} is now ${e.target.checked ? 'active' : 'inactive'}.`,
+                            });
+                          }
+                        });
+                      }}
+                      className="h-4 w-4 rounded border-gray-300 cursor-pointer"
+                      data-testid={`checkbox-active-${patient.id}`}
+                    />
                   </td>
                   <td className="py-3 px-4 text-right">
                     <div className="flex justify-end gap-1">
