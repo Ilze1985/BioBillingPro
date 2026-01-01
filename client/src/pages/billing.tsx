@@ -126,16 +126,31 @@ export default function BillingPage() {
     const totalRevenue = filteredMonthlySessions.reduce((sum, s) => sum + s.finalPrice, 0);
     const totalOriginal = filteredMonthlySessions.reduce((sum, s) => sum + s.totalPrice, 0);
     const totalDiscount = totalOriginal - totalRevenue;
+    
+    // Count unique patients
+    const uniquePatientIds = new Set(filteredMonthlySessions.map(s => s.patientId));
+    const patientCount = uniquePatientIds.size;
+    
+    // Sort sessions by patient surname alphabetically
+    const sortedSessions = [...filteredMonthlySessions].sort((a, b) => {
+      const patientA = patients.find(p => p.id === a.patientId);
+      const patientB = patients.find(p => p.id === b.patientId);
+      const surnameA = patientA?.surname || '';
+      const surnameB = patientB?.surname || '';
+      return surnameA.localeCompare(surnameB);
+    });
 
     return {
       months,
       sessions: filteredMonthlySessions,
+      sortedSessions,
       totalRevenue,
       totalOriginal,
       totalDiscount,
       count: filteredMonthlySessions.length,
+      patientCount,
     };
-  }, [filteredMonthlySessions, patientActiveMap]);
+  }, [filteredMonthlySessions, patientActiveMap, patients]);
 
   // Get the latest month from existing monthly sessions to use as source for rollover
   const latestMonth = useMemo(() => {
@@ -385,14 +400,14 @@ export default function BillingPage() {
                   <p className="text-xs text-muted-foreground">Monthly billing codes</p>
                 </CardContent>
               </Card>
-              <Card className="shadow-sm" data-testid="card-monthly-sessions">
+              <Card className="shadow-sm" data-testid="card-monthly-patients">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Sessions</CardTitle>
+                  <CardTitle className="text-sm font-medium">Patients</CardTitle>
                   <Calendar className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{monthlyData.count}</div>
-                  <p className="text-xs text-muted-foreground">Monthly frequency codes</p>
+                  <div className="text-2xl font-bold">{monthlyData.patientCount}</div>
+                  <p className="text-xs text-muted-foreground">Patients billed this period</p>
                 </CardContent>
               </Card>
               <Card className="shadow-sm" data-testid="card-monthly-discount">
@@ -458,6 +473,7 @@ export default function BillingPage() {
                         <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Month</th>
                         <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Date</th>
                         <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Patient</th>
+                        <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Practice</th>
                         <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Type</th>
                         <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Codes</th>
                         <th className="h-12 px-4 text-right align-middle font-medium text-muted-foreground">Original</th>
@@ -465,12 +481,12 @@ export default function BillingPage() {
                       </tr>
                     </thead>
                     <tbody className="[&_tr:last-child]:border-0">
-                      {monthlyData.sessions.length === 0 ? (
+                      {monthlyData.sortedSessions.length === 0 ? (
                         <tr>
-                          <td colSpan={8} className="p-4 text-center text-muted-foreground">No monthly billing sessions in this period</td>
+                          <td colSpan={9} className="p-4 text-center text-muted-foreground">No monthly billing sessions in this period</td>
                         </tr>
                       ) : (
-                        monthlyData.sessions.map((session) => {
+                        monthlyData.sortedSessions.map((session) => {
                           const sessionDate = new Date(session.date);
                           const monthLabel = sessionDate.toLocaleDateString('en-US', { month: 'short' });
                           const patient = patients.find(p => p.id === session.patientId);
@@ -507,6 +523,7 @@ export default function BillingPage() {
                               </td>
                               <td className="p-4 align-middle">{sessionDate.toLocaleDateString()}</td>
                               <td className="p-4 align-middle font-medium">{session.patientName}</td>
+                              <td className="p-4 align-middle text-muted-foreground">{patient?.practiceName || 'N/A'}</td>
                               <td className="p-4 align-middle">
                                 <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${
                                   session.billingType === 'private' ? 'bg-purple-100 text-purple-800' : 'bg-amber-100 text-amber-800'
