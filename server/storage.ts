@@ -4,6 +4,7 @@ import {
   billingCodes,
   sessions,
   financialPeriods,
+  weeklyBillingStatements,
   type User,
   type InsertUser,
   type Patient,
@@ -14,9 +15,11 @@ import {
   type InsertSession,
   type FinancialPeriod,
   type InsertFinancialPeriod,
+  type WeeklyBillingStatement,
+  type InsertWeeklyBillingStatement,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and, ne } from "drizzle-orm";
 
 export interface IStorage {
   // Users
@@ -58,6 +61,15 @@ export interface IStorage {
   createFinancialPeriod(period: InsertFinancialPeriod): Promise<FinancialPeriod>;
   updateFinancialPeriod(id: number, data: Partial<InsertFinancialPeriod>): Promise<FinancialPeriod | undefined>;
   deleteFinancialPeriod(id: number): Promise<boolean>;
+
+  // Weekly Billing Statements
+  getWeeklyBillingStatement(id: number): Promise<WeeklyBillingStatement | undefined>;
+  getAllWeeklyBillingStatements(): Promise<WeeklyBillingStatement[]>;
+  getActiveWeeklyBillingStatements(): Promise<WeeklyBillingStatement[]>;
+  createWeeklyBillingStatement(statement: InsertWeeklyBillingStatement): Promise<WeeklyBillingStatement>;
+  updateWeeklyBillingStatement(id: number, data: Partial<InsertWeeklyBillingStatement>): Promise<WeeklyBillingStatement | undefined>;
+  updateWeeklyBillingStatementStatus(id: number, status: 'awaiting_review' | 'ready_to_send' | 'statement_sent' | 'archived', statementTypeNote?: string): Promise<WeeklyBillingStatement | undefined>;
+  deleteWeeklyBillingStatement(id: number): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -211,6 +223,56 @@ export class DatabaseStorage implements IStorage {
 
   async deleteFinancialPeriod(id: number): Promise<boolean> {
     await db.delete(financialPeriods).where(eq(financialPeriods.id, id));
+    return true;
+  }
+
+  // Weekly Billing Statements
+  async getWeeklyBillingStatement(id: number): Promise<WeeklyBillingStatement | undefined> {
+    const [statement] = await db.select().from(weeklyBillingStatements).where(eq(weeklyBillingStatements.id, id));
+    return statement || undefined;
+  }
+
+  async getAllWeeklyBillingStatements(): Promise<WeeklyBillingStatement[]> {
+    return await db.select().from(weeklyBillingStatements).orderBy(desc(weeklyBillingStatements.createdAt));
+  }
+
+  async getActiveWeeklyBillingStatements(): Promise<WeeklyBillingStatement[]> {
+    return await db.select().from(weeklyBillingStatements)
+      .where(ne(weeklyBillingStatements.status, 'archived'))
+      .orderBy(desc(weeklyBillingStatements.createdAt));
+  }
+
+  async createWeeklyBillingStatement(insertStatement: InsertWeeklyBillingStatement): Promise<WeeklyBillingStatement> {
+    const [statement] = await db.insert(weeklyBillingStatements).values(insertStatement).returning();
+    return statement;
+  }
+
+  async updateWeeklyBillingStatement(id: number, data: Partial<InsertWeeklyBillingStatement>): Promise<WeeklyBillingStatement | undefined> {
+    const [statement] = await db.update(weeklyBillingStatements)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(weeklyBillingStatements.id, id))
+      .returning();
+    return statement || undefined;
+  }
+
+  async updateWeeklyBillingStatementStatus(
+    id: number, 
+    status: 'awaiting_review' | 'ready_to_send' | 'statement_sent' | 'archived',
+    statementTypeNote?: string
+  ): Promise<WeeklyBillingStatement | undefined> {
+    const updateData: Partial<WeeklyBillingStatement> = { status, updatedAt: new Date() };
+    if (statementTypeNote !== undefined) {
+      updateData.statementTypeNote = statementTypeNote;
+    }
+    const [statement] = await db.update(weeklyBillingStatements)
+      .set(updateData)
+      .where(eq(weeklyBillingStatements.id, id))
+      .returning();
+    return statement || undefined;
+  }
+
+  async deleteWeeklyBillingStatement(id: number): Promise<boolean> {
+    await db.delete(weeklyBillingStatements).where(eq(weeklyBillingStatements.id, id));
     return true;
   }
 }

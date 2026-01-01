@@ -7,6 +7,7 @@ export const userRoleEnum = pgEnum('user_role', ['admin', 'practitioner', 'recep
 export const sessionStatusEnum = pgEnum('session_status', ['captured', 'invoiced', 'paid']);
 export const billingTypeEnum = pgEnum('billing_type', ['medical_aid', 'private', 'private_cash']);
 export const billingFrequencyEnum = pgEnum('billing_frequency', ['weekly', 'monthly']);
+export const statementStatusEnum = pgEnum('statement_status', ['awaiting_review', 'ready_to_send', 'statement_sent', 'archived']);
 export const genderEnum = pgEnum('gender', ['male', 'female']);
 export const populationGroupEnum = pgEnum('population_group', [
   'orthopaedic', 'metabolic', 'cardiac', 
@@ -93,6 +94,35 @@ export const sessionsRelations = relations(sessions, ({ one }) => ({
   }),
 }));
 
+export const weeklyBillingStatements = pgTable("weekly_billing_statements", {
+  id: serial("id").primaryKey(),
+  patientId: integer("patient_id").notNull().references(() => patients.id),
+  financialPeriodId: integer("financial_period_id").references(() => financialPeriods.id),
+  practitionerId: integer("practitioner_id").references(() => users.id),
+  weekStartDate: text("week_start_date").notNull(),
+  weekEndDate: text("week_end_date").notNull(),
+  status: statementStatusEnum("status").notNull().default('awaiting_review'),
+  statementTypeNote: text("statement_type_note"),
+  totalAmount: integer("total_amount").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const weeklyBillingStatementsRelations = relations(weeklyBillingStatements, ({ one }) => ({
+  patient: one(patients, {
+    fields: [weeklyBillingStatements.patientId],
+    references: [patients.id],
+  }),
+  financialPeriod: one(financialPeriods, {
+    fields: [weeklyBillingStatements.financialPeriodId],
+    references: [financialPeriods.id],
+  }),
+  practitioner: one(users, {
+    fields: [weeklyBillingStatements.practitionerId],
+    references: [users.id],
+  }),
+}));
+
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).omit({ id: true });
 export const insertPatientSchema = createInsertSchema(patients).omit({ id: true });
@@ -101,6 +131,7 @@ export const insertSessionSchema = createInsertSchema(sessions).omit({ id: true,
   discountPercent: z.number().min(0).optional().default(0)
 });
 export const insertFinancialPeriodSchema = createInsertSchema(financialPeriods).omit({ id: true });
+export const insertWeeklyBillingStatementSchema = createInsertSchema(weeklyBillingStatements).omit({ id: true, createdAt: true, updatedAt: true });
 
 // Types
 export type User = typeof users.$inferSelect;
@@ -117,3 +148,6 @@ export type InsertSession = z.infer<typeof insertSessionSchema>;
 
 export type FinancialPeriod = typeof financialPeriods.$inferSelect;
 export type InsertFinancialPeriod = z.infer<typeof insertFinancialPeriodSchema>;
+
+export type WeeklyBillingStatement = typeof weeklyBillingStatements.$inferSelect;
+export type InsertWeeklyBillingStatement = z.infer<typeof insertWeeklyBillingStatementSchema>;
