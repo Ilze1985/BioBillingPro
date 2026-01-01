@@ -299,11 +299,24 @@ export async function registerRoutes(
   app.patch("/api/sessions/:id", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      const sessionData = insertSessionSchema.partial().parse(req.body);
-      const session = await storage.updateSession(id, sessionData);
-      if (!session) {
+      const userRole = req.headers['x-user-role'] as string;
+      
+      // Check if session is invoiced - only admin can edit invoiced sessions
+      const existingSession = await storage.getSession(id);
+      if (!existingSession) {
         return res.status(404).json({ message: "Session not found" });
       }
+      
+      if (existingSession.status === 'invoiced' || existingSession.status === 'paid') {
+        if (userRole !== 'admin') {
+          return res.status(403).json({ 
+            message: "Invoiced sessions cannot be edited. Contact an administrator." 
+          });
+        }
+      }
+      
+      const sessionData = insertSessionSchema.partial().parse(req.body);
+      const session = await storage.updateSession(id, sessionData);
       res.json(session);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -317,9 +330,17 @@ export async function registerRoutes(
     try {
       const id = parseInt(req.params.id);
       const { status } = req.body;
+      const userRole = req.headers['x-user-role'] as string;
       
       if (!['captured', 'invoiced', 'paid'].includes(status)) {
         return res.status(400).json({ message: "Invalid status value" });
+      }
+      
+      // Only receptionist or admin can mark sessions as invoiced or paid
+      if ((status === 'invoiced' || status === 'paid') && userRole !== 'receptionist' && userRole !== 'admin') {
+        return res.status(403).json({ 
+          message: `Only receptionists or admins can mark sessions as ${status}.` 
+        });
       }
 
       const session = await storage.updateSessionStatus(id, status);

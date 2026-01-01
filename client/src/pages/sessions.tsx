@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
-import { useCreateSession, useSessions, usePatients, useBillingCodesByType, useUsers, useFinancialPeriods, BillingType } from "@/lib/api";
+import { useCreateSession, useSessions, usePatients, useBillingCodesByType, useUsers, useFinancialPeriods, useUpdateSessionStatus, BillingType } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { format } from "date-fns";
-import { Plus, Search, Filter } from "lucide-react";
+import { Plus, Search, Filter, FileCheck, User } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -20,6 +20,12 @@ import {
   DialogClose,
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 export default function SessionsPage() {
   const { data: sessions = [], isLoading } = useSessions();
@@ -27,11 +33,13 @@ export default function SessionsPage() {
   const { data: users = [] } = useUsers();
   const { data: financialPeriods = [] } = useFinancialPeriods();
   const createSessionMutation = useCreateSession();
+  const updateStatusMutation = useUpdateSessionStatus();
   const { toast } = useToast();
   
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedPeriodFilter, setSelectedPeriodFilter] = useState<string>("all");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [currentUserRole, setCurrentUserRole] = useState<string>("practitioner");
 
   // Form State
   const [selectedPractitionerId, setSelectedPractitionerId] = useState("");
@@ -151,6 +159,30 @@ export default function SessionsPage() {
     }
   };
 
+  const handleMarkAsInvoiced = async (sessionId: number) => {
+    try {
+      await updateStatusMutation.mutateAsync({
+        id: sessionId,
+        status: 'invoiced',
+        userRole: currentUserRole
+      });
+      toast({
+        title: "Session Invoiced",
+        description: "Session status has been updated to Invoiced.",
+      });
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : "Failed to update session status.";
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const canMarkAsInvoiced = currentUserRole === 'receptionist' || currentUserRole === 'admin';
+  const canCaptureSession = currentUserRole === 'practitioner' || currentUserRole === 'admin';
+
   const filteredSessions = sessions.filter(session => {
     const matchesSearch = session.patientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       session.billingCodes.some(code => code.toLowerCase().includes(searchTerm.toLowerCase()));
@@ -179,13 +211,28 @@ export default function SessionsPage() {
           <h1 className="text-3xl font-bold tracking-tight text-foreground" data-testid="heading-sessions">Sessions</h1>
           <p className="text-muted-foreground">Capture and manage patient sessions.</p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="gap-2 shadow-sm" data-testid="button-new-session">
-              <Plus className="h-4 w-4" />
-              Capture New Session
-            </Button>
-          </DialogTrigger>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 bg-muted/50 rounded-lg px-3 py-1.5">
+            <User className="h-4 w-4 text-muted-foreground" />
+            <Select value={currentUserRole} onValueChange={setCurrentUserRole}>
+              <SelectTrigger className="h-8 w-[130px] border-0 bg-transparent" data-testid="select-user-role">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="practitioner">Practitioner</SelectItem>
+                <SelectItem value="receptionist">Receptionist</SelectItem>
+                <SelectItem value="admin">Admin</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          {canCaptureSession && (
+            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+              <DialogTrigger asChild>
+                <Button className="gap-2 shadow-sm" data-testid="button-new-session">
+                  <Plus className="h-4 w-4" />
+                  Capture New Session
+                </Button>
+              </DialogTrigger>
           <DialogContent className="sm:max-w-[700px]">
             <DialogHeader>
               <DialogTitle>Capture Session</DialogTitle>
@@ -453,7 +500,9 @@ export default function SessionsPage() {
               <Button onClick={handleSave} data-testid="button-save-session">Save Session</Button>
             </DialogFooter>
           </DialogContent>
-        </Dialog>
+            </Dialog>
+          )}
+        </div>
       </div>
 
       <Card className="shadow-sm">
@@ -501,6 +550,9 @@ export default function SessionsPage() {
                   <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Period</th>
                   <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Status</th>
                   <th className="h-12 px-4 text-right align-middle font-medium text-muted-foreground">Amount</th>
+                  {canMarkAsInvoiced && (
+                    <th className="h-12 px-4 text-center align-middle font-medium text-muted-foreground">Actions</th>
+                  )}
                 </tr>
               </thead>
               <tbody className="[&_tr:last-child]:border-0">
@@ -562,6 +614,36 @@ export default function SessionsPage() {
                         <span>R {session.totalPrice}</span>
                       )}
                     </td>
+                    {canMarkAsInvoiced && (
+                      <td className="p-4 align-middle text-center">
+                        {session.status === 'captured' ? (
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="gap-1"
+                                  onClick={() => handleMarkAsInvoiced(session.id)}
+                                  disabled={updateStatusMutation.isPending}
+                                  data-testid={`button-invoice-${session.id}`}
+                                >
+                                  <FileCheck className="h-3 w-3" />
+                                  Invoice
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Mark this session as invoiced. This will lock the session from editing.</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">
+                            {session.status === 'invoiced' ? 'Locked' : 'Paid'}
+                          </span>
+                        )}
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>

@@ -212,6 +212,22 @@ async function deleteSession(id: number): Promise<void> {
   if (!res.ok) throw new Error('Failed to delete session');
 }
 
+async function updateSessionStatus(id: number, status: string, userRole: string): Promise<Session> {
+  const res = await fetch(`/api/sessions/${id}/status`, {
+    method: 'PATCH',
+    headers: { 
+      'Content-Type': 'application/json',
+      'X-User-Role': userRole
+    },
+    body: JSON.stringify({ status })
+  });
+  if (!res.ok) {
+    const error = await res.json();
+    throw new Error(error.message || 'Failed to update session status');
+  }
+  return res.json();
+}
+
 async function fetchFinancialPeriods(): Promise<FinancialPeriod[]> {
   const res = await fetch('/api/financial-periods');
   if (!res.ok) throw new Error('Failed to fetch financial periods');
@@ -421,6 +437,17 @@ export function useDeleteSession() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: deleteSession,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['sessions'] });
+    },
+  });
+}
+
+export function useUpdateSessionStatus() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, status, userRole }: { id: number; status: string; userRole: string }) => 
+      updateSessionStatus(id, status, userRole),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sessions'] });
     },
