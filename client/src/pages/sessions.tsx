@@ -900,8 +900,23 @@ export default function SessionsPage() {
                            'Archived'}
                         </Badge>
                       </td>
-                      <td className="p-4 align-middle text-sm text-muted-foreground max-w-[150px] truncate">
-                        {statement.statementTypeNote || '-'}
+                      <td className="p-4 align-middle text-sm text-muted-foreground max-w-[150px]">
+                        {statement.statementTypeNote ? (
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className="truncate block cursor-help" data-testid={`note-${statement.id}`}>
+                                  {statement.statementTypeNote}
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent className="max-w-[300px]">
+                                <p className="whitespace-pre-wrap">{statement.statementTypeNote}</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        ) : (
+                          <span>-</span>
+                        )}
                       </td>
                       <td className="p-4 align-middle text-right font-medium">
                         R {statement.totalAmount || 0}
