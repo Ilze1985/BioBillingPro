@@ -4,8 +4,8 @@ import { usePatients, useCreatePatient, useUpdatePatient, useDeletePatient, Bill
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Plus, Search, Calendar, Hash, Pencil, Trash2 } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Plus, Search, Pencil, Trash2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -368,57 +368,51 @@ export default function PatientsPage() {
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {filteredPatients.map((patient) => (
-          <Card key={patient.id} className="shadow-sm hover:shadow-md transition-all" data-testid={`card-patient-${patient.id}`}>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-lg font-bold">{patient.firstName} {patient.surname}</CardTitle>
-              <div className="flex gap-1">
-                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEditDialog(patient.id)} data-testid={`button-edit-patient-${patient.id}`}>
-                  <Pencil className="h-4 w-4" />
-                </Button>
-                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => setDeletePatient(patient.id)} data-testid={`button-delete-patient-${patient.id}`}>
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2 mt-2">
-                <div className="flex items-center text-sm text-muted-foreground">
-                  <Calendar className="mr-2 h-4 w-4 text-primary/70" />
-                  {patient.dateOfBirth || 'N/A'}
-                </div>
-                <div className="flex items-center text-sm text-muted-foreground">
-                  <Hash className="mr-2 h-4 w-4 text-primary/70" />
-                  {patient.accountNumber || 'N/A'}
-                </div>
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                    patient.billingType === 'private' 
-                      ? 'bg-purple-100 text-purple-800' 
-                      : patient.billingType === 'private_cash'
-                      ? 'bg-green-100 text-green-800'
-                      : 'bg-blue-100 text-blue-800'
-                  }`}>
-                    {patient.billingType === 'private' ? 'Private' : patient.billingType === 'private_cash' ? 'Private Cash' : 'Medical Aid'}
-                  </span>
-                  {patient.gender && (
-                    <span className="text-xs text-muted-foreground capitalize">{patient.gender}</span>
-                  )}
-                  {patient.populationGroup && (
-                    <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs bg-teal-100 text-teal-800 capitalize">
-                      {patient.populationGroup.replace(/_/g, ' ')}
+      <Card className="shadow-sm">
+        <CardContent className="p-0">
+          <table className="w-full">
+            <thead className="bg-muted/50">
+              <tr>
+                <th className="text-left py-3 px-4 font-semibold text-sm">Patient Name</th>
+                <th className="text-left py-3 px-4 font-semibold text-sm">Account Number</th>
+                <th className="text-left py-3 px-4 font-semibold text-sm">Date of Birth</th>
+                <th className="text-left py-3 px-4 font-semibold text-sm">Billing Type</th>
+                <th className="text-right py-3 px-4 font-semibold text-sm">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredPatients.map((patient) => (
+                <tr key={patient.id} className="border-t hover:bg-muted/30" data-testid={`row-patient-${patient.id}`}>
+                  <td className="py-3 px-4 font-medium">{patient.firstName} {patient.surname}</td>
+                  <td className="py-3 px-4 text-muted-foreground">{patient.accountNumber || 'N/A'}</td>
+                  <td className="py-3 px-4 text-muted-foreground">{patient.dateOfBirth || 'N/A'}</td>
+                  <td className="py-3 px-4">
+                    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                      patient.billingType === 'private' 
+                        ? 'bg-purple-100 text-purple-800' 
+                        : patient.billingType === 'private_cash'
+                        ? 'bg-green-100 text-green-800'
+                        : 'bg-blue-100 text-blue-800'
+                    }`}>
+                      {patient.billingType === 'private' ? 'Private' : patient.billingType === 'private_cash' ? 'Private Cash' : 'Medical Aid'}
                     </span>
-                  )}
-                  {patient.mainstream === 'yes' && (
-                    <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs bg-amber-100 text-amber-800">Mainstream</span>
-                  )}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+                  </td>
+                  <td className="py-3 px-4 text-right">
+                    <div className="flex justify-end gap-1">
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEditDialog(patient.id)} data-testid={`button-edit-patient-${patient.id}`}>
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => setDeletePatient(patient.id)} data-testid={`button-delete-patient-${patient.id}`}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </CardContent>
+      </Card>
 
       <Dialog open={!!editPatient} onOpenChange={(open) => { if (!open) { setEditPatient(null); setFormData(emptyFormData); } }}>
         <DialogContent className="sm:max-w-[550px]">
