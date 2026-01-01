@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
-import { useCreateSession, useSessions, usePatients, useBillingCodesByType, useUsers, useFinancialPeriods, useUpdateSessionStatus, BillingType } from "@/lib/api";
+import { useCreateSession, useSessions, usePatients, useBillingCodesByType, useUsers, useFinancialPeriods, useUpdateSessionStatus, useWeeklyBillingStatements, useCreateWeeklyBillingStatement, useUpdateWeeklyBillingStatementStatus, BillingType, StatementStatus } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,7 +8,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { format } from "date-fns";
-import { Plus, Search, Filter, FileCheck, User } from "lucide-react";
+import { Plus, Search, Filter, FileCheck, User, Send, CheckCircle, Archive } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
@@ -32,9 +34,17 @@ export default function SessionsPage() {
   const { data: patients = [] } = usePatients();
   const { data: users = [] } = useUsers();
   const { data: financialPeriods = [] } = useFinancialPeriods();
+  const { data: weeklyStatements = [] } = useWeeklyBillingStatements();
   const createSessionMutation = useCreateSession();
   const updateStatusMutation = useUpdateSessionStatus();
+  const createStatementMutation = useCreateWeeklyBillingStatement();
+  const updateStatementStatusMutation = useUpdateWeeklyBillingStatementStatus();
   const { toast } = useToast();
+  
+  const [activeTab, setActiveTab] = useState("sessions");
+  const [statementNote, setStatementNote] = useState("");
+  const [selectedStatementId, setSelectedStatementId] = useState<number | null>(null);
+  const [isReadyToSendDialogOpen, setIsReadyToSendDialogOpen] = useState(false);
   
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedPeriodFilter, setSelectedPeriodFilter] = useState<string>("all");
@@ -182,8 +192,91 @@ export default function SessionsPage() {
     }
   };
 
+  const handleReadyToSend = async () => {
+    if (!selectedStatementId || !statementNote.trim()) return;
+    try {
+      await updateStatementStatusMutation.mutateAsync({
+        id: selectedStatementId,
+        status: 'ready_to_send' as StatementStatus,
+        userRole: currentUserRole,
+        statementTypeNote: statementNote.trim()
+      });
+      toast({
+        title: "Statement Ready",
+        description: "Statement has been marked as ready to send.",
+      });
+      setIsReadyToSendDialogOpen(false);
+      setStatementNote("");
+      setSelectedStatementId(null);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : "Failed to update statement status.";
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleMarkStatementSent = async (statementId: number) => {
+    try {
+      await updateStatementStatusMutation.mutateAsync({
+        id: statementId,
+        status: 'statement_sent' as StatementStatus,
+        userRole: currentUserRole
+      });
+      toast({
+        title: "Statement Sent",
+        description: "Statement has been marked as sent and archived.",
+      });
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : "Failed to update statement status.";
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleArchiveStatement = async (statementId: number) => {
+    try {
+      await updateStatementStatusMutation.mutateAsync({
+        id: statementId,
+        status: 'archived' as StatementStatus,
+        userRole: currentUserRole
+      });
+      toast({
+        title: "Statement Archived",
+        description: "Statement has been archived.",
+      });
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : "Failed to archive statement.";
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    }
+  };
+
   const canMarkAsInvoiced = currentUserRole === 'receptionist' || currentUserRole === 'admin';
   const canCaptureSession = currentUserRole === 'practitioner' || currentUserRole === 'admin';
+  const isAdmin = currentUserRole === 'admin';
+  const isReceptionist = currentUserRole === 'receptionist';
+
+  // Get enriched statement data
+  const enrichedStatements = weeklyStatements.map(statement => {
+    const patient = patients.find(p => p.id === statement.patientId);
+    const practitioner = users.find(u => u.id === statement.practitionerId);
+    const period = financialPeriods.find(p => p.id === statement.financialPeriodId);
+    return {
+      ...statement,
+      patientName: patient ? `${patient.firstName} ${patient.surname}` : 'Unknown',
+      practitionerName: practitioner?.name || 'Unknown',
+      periodName: period?.name || 'No Period'
+    };
+  });
 
   const filteredSessions = sessions.filter(session => {
     const matchesSearch = session.patientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -514,6 +607,29 @@ export default function SessionsPage() {
         </div>
       </div>
 
+      {canMarkAsInvoiced ? (
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-4">
+          <TabsList>
+            <TabsTrigger value="sessions" data-testid="tab-sessions">All Sessions</TabsTrigger>
+            <TabsTrigger value="weekly-statements" data-testid="tab-weekly-statements">Weekly Statements</TabsTrigger>
+          </TabsList>
+          <TabsContent value="sessions" className="mt-4">
+            <SessionHistoryCard />
+          </TabsContent>
+          <TabsContent value="weekly-statements" className="mt-4">
+            <WeeklyStatementsCard />
+          </TabsContent>
+        </Tabs>
+      ) : (
+        <SessionHistoryCard />
+      )}
+
+      <ReadyToSendDialog />
+    </AppLayout>
+  );
+
+  function SessionHistoryCard() {
+    return (
       <Card className="shadow-sm">
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
@@ -685,6 +801,178 @@ export default function SessionsPage() {
           </div>
         </CardContent>
       </Card>
-    </AppLayout>
-  );
+    );
+  }
+
+  function WeeklyStatementsCard() {
+    return (
+      <Card className="shadow-sm">
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle>Weekly Billing Statements</CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Track patient statements from invoice to archive
+            </p>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {enrichedStatements.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <p>No active weekly billing statements.</p>
+              <p className="text-sm mt-1">Statements appear when all sessions for a patient are invoiced.</p>
+            </div>
+          ) : (
+            <div className="rounded-md border">
+              <table className="w-full caption-bottom text-sm">
+                <thead className="[&_tr]:border-b">
+                  <tr className="border-b transition-colors hover:bg-muted/50">
+                    <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Patient</th>
+                    <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Practitioner</th>
+                    <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Period</th>
+                    <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Week Range</th>
+                    <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Status</th>
+                    <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Note</th>
+                    <th className="h-12 px-4 text-right align-middle font-medium text-muted-foreground">Amount</th>
+                    <th className="h-12 px-4 text-center align-middle font-medium text-muted-foreground">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="[&_tr:last-child]:border-0">
+                  {enrichedStatements.map((statement) => (
+                    <tr key={statement.id} className="border-b transition-colors hover:bg-muted/50" data-testid={`row-statement-${statement.id}`}>
+                      <td className="p-4 align-middle font-medium">{statement.patientName}</td>
+                      <td className="p-4 align-middle text-muted-foreground">{statement.practitionerName}</td>
+                      <td className="p-4 align-middle">
+                        <Badge variant="outline">{statement.periodName}</Badge>
+                      </td>
+                      <td className="p-4 align-middle text-sm">
+                        {statement.weekStartDate} - {statement.weekEndDate}
+                      </td>
+                      <td className="p-4 align-middle">
+                        <Badge 
+                          variant={
+                            statement.status === 'awaiting_review' ? 'secondary' :
+                            statement.status === 'ready_to_send' ? 'default' :
+                            statement.status === 'statement_sent' ? 'outline' :
+                            'secondary'
+                          }
+                          className={
+                            statement.status === 'ready_to_send' ? 'bg-blue-100 text-blue-800' :
+                            statement.status === 'statement_sent' ? 'bg-green-100 text-green-800' :
+                            ''
+                          }
+                        >
+                          {statement.status === 'awaiting_review' ? 'Awaiting Review' :
+                           statement.status === 'ready_to_send' ? 'Ready to Send' :
+                           statement.status === 'statement_sent' ? 'Statement Sent' :
+                           'Archived'}
+                        </Badge>
+                      </td>
+                      <td className="p-4 align-middle text-sm text-muted-foreground max-w-[150px] truncate">
+                        {statement.statementTypeNote || '-'}
+                      </td>
+                      <td className="p-4 align-middle text-right font-medium">
+                        R {statement.totalAmount || 0}
+                      </td>
+                      <td className="p-4 align-middle text-center">
+                        <div className="flex items-center justify-center gap-2">
+                          {isAdmin && statement.status === 'awaiting_review' && (
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="gap-1"
+                                    onClick={() => {
+                                      setSelectedStatementId(statement.id);
+                                      setIsReadyToSendDialogOpen(true);
+                                    }}
+                                    data-testid={`button-ready-${statement.id}`}
+                                  >
+                                    <Send className="h-3 w-3" />
+                                    Ready
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Mark as ready to send statement (requires note)</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          )}
+                          {(isReceptionist || isAdmin) && statement.status === 'ready_to_send' && (
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="gap-1"
+                                    onClick={() => handleMarkStatementSent(statement.id)}
+                                    disabled={updateStatementStatusMutation.isPending}
+                                    data-testid={`button-sent-${statement.id}`}
+                                  >
+                                    <CheckCircle className="h-3 w-3" />
+                                    Sent
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Mark statement as sent (will be archived)</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          )}
+                          {statement.status === 'statement_sent' && (
+                            <span className="text-xs text-green-600">Archived</span>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    );
+  }
+
+  function ReadyToSendDialog() {
+    return (
+      <Dialog open={isReadyToSendDialogOpen} onOpenChange={setIsReadyToSendDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Ready to Send Statement</DialogTitle>
+            <DialogDescription>
+              Add a note about the statement type before marking as ready to send.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="statement-note">Statement Type Note</Label>
+              <Textarea
+                id="statement-note"
+                value={statementNote}
+                onChange={(e) => setStatementNote(e.target.value)}
+                placeholder="e.g., Medical aid claim, Private account statement..."
+                data-testid="input-statement-note"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="outline">Cancel</Button>
+            </DialogClose>
+            <Button 
+              onClick={handleReadyToSend} 
+              disabled={!statementNote.trim() || updateStatementStatusMutation.isPending}
+              data-testid="button-confirm-ready"
+            >
+              Mark Ready to Send
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    );
+  }
 }

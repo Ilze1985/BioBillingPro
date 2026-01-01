@@ -67,6 +67,22 @@ export interface FinancialPeriod {
   endDate: string;
 }
 
+export type StatementStatus = 'awaiting_review' | 'ready_to_send' | 'statement_sent' | 'archived';
+
+export interface WeeklyBillingStatement {
+  id: number;
+  patientId: number;
+  financialPeriodId: number | null;
+  practitionerId: number | null;
+  weekStartDate: string;
+  weekEndDate: string;
+  status: StatementStatus;
+  statementTypeNote: string | null;
+  totalAmount: number | null;
+  createdAt: Date | null;
+  updatedAt: Date | null;
+}
+
 // API Functions
 async function fetchUsers(): Promise<User[]> {
   const res = await fetch('/api/users');
@@ -511,6 +527,91 @@ export function useUndoMonthlyRollover() {
     mutationFn: (month: string) => undoMonthlyRollover(month),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sessions'] });
+    },
+  });
+}
+
+// Weekly Billing Statements
+async function fetchWeeklyBillingStatements(): Promise<WeeklyBillingStatement[]> {
+  const res = await fetch('/api/weekly-billing-statements');
+  if (!res.ok) throw new Error('Failed to fetch weekly billing statements');
+  return res.json();
+}
+
+async function fetchAllWeeklyBillingStatements(): Promise<WeeklyBillingStatement[]> {
+  const res = await fetch('/api/weekly-billing-statements/all');
+  if (!res.ok) throw new Error('Failed to fetch all weekly billing statements');
+  return res.json();
+}
+
+async function createWeeklyBillingStatement(statement: Omit<WeeklyBillingStatement, 'id' | 'createdAt' | 'updatedAt'>): Promise<WeeklyBillingStatement> {
+  const res = await fetch('/api/weekly-billing-statements', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(statement)
+  });
+  if (!res.ok) throw new Error('Failed to create weekly billing statement');
+  return res.json();
+}
+
+async function updateWeeklyBillingStatementStatus(
+  id: number, 
+  status: StatementStatus, 
+  userRole: string,
+  statementTypeNote?: string
+): Promise<WeeklyBillingStatement> {
+  const res = await fetch(`/api/weekly-billing-statements/${id}/status`, {
+    method: 'PATCH',
+    headers: { 
+      'Content-Type': 'application/json',
+      'X-User-Role': userRole
+    },
+    body: JSON.stringify({ status, statementTypeNote })
+  });
+  if (!res.ok) {
+    const error = await res.json();
+    throw new Error(error.message || 'Failed to update statement status');
+  }
+  return res.json();
+}
+
+export function useWeeklyBillingStatements() {
+  return useQuery({
+    queryKey: ['weeklyBillingStatements'],
+    queryFn: fetchWeeklyBillingStatements,
+  });
+}
+
+export function useAllWeeklyBillingStatements() {
+  return useQuery({
+    queryKey: ['allWeeklyBillingStatements'],
+    queryFn: fetchAllWeeklyBillingStatements,
+  });
+}
+
+export function useCreateWeeklyBillingStatement() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: createWeeklyBillingStatement,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['weeklyBillingStatements'] });
+      queryClient.invalidateQueries({ queryKey: ['allWeeklyBillingStatements'] });
+    },
+  });
+}
+
+export function useUpdateWeeklyBillingStatementStatus() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, status, userRole, statementTypeNote }: { 
+      id: number; 
+      status: StatementStatus; 
+      userRole: string;
+      statementTypeNote?: string;
+    }) => updateWeeklyBillingStatementStatus(id, status, userRole, statementTypeNote),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['weeklyBillingStatements'] });
+      queryClient.invalidateQueries({ queryKey: ['allWeeklyBillingStatements'] });
     },
   });
 }
