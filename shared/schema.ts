@@ -7,6 +7,12 @@ export const userRoleEnum = pgEnum('user_role', ['admin', 'practitioner']);
 export const sessionStatusEnum = pgEnum('session_status', ['captured', 'invoiced', 'paid']);
 export const billingTypeEnum = pgEnum('billing_type', ['medical_aid', 'private', 'private_cash']);
 export const billingFrequencyEnum = pgEnum('billing_frequency', ['weekly', 'monthly']);
+export const genderEnum = pgEnum('gender', ['male', 'female']);
+export const populationGroupEnum = pgEnum('population_group', [
+  'orthopaedic', 'metabolic', 'cardiac', 
+  'conditioning_development_10_13', 'conditioning_adolescent_14_18', 
+  'conditioning_adult', 'wellness', 'geriatric'
+]);
 
 export const financialPeriods = pgTable("financial_periods", {
   id: serial("id").primaryKey(),
@@ -35,6 +41,9 @@ export const patients = pgTable("patients", {
   accountNumber: text("account_number"),
   billingType: billingTypeEnum("billing_type").notNull().default('medical_aid'),
   medicalAidName: text("medical_aid_name"),
+  gender: genderEnum("gender"),
+  populationGroup: populationGroupEnum("population_group"),
+  mainstream: text("mainstream"),
 });
 
 export const patientsRelations = relations(patients, ({ many }) => ({

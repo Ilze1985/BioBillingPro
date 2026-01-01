@@ -870,6 +870,44 @@ export default function AdminPage() {
                 data-testid="input-edit-patient-medical-aid-name" 
               />
             </div>
+            <div className="grid grid-cols-3 gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="gender">Gender</Label>
+                <Select value={formData.gender || ''} onValueChange={(v) => setFormData({ ...formData, gender: v })}>
+                  <SelectTrigger data-testid="select-edit-patient-gender"><SelectValue placeholder="Select" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="male">Male</SelectItem>
+                    <SelectItem value="female">Female</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="populationGroup">Population Group</Label>
+                <Select value={formData.populationGroup || ''} onValueChange={(v) => setFormData({ ...formData, populationGroup: v })}>
+                  <SelectTrigger data-testid="select-edit-patient-population-group"><SelectValue placeholder="Select" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="orthopaedic">Orthopaedic</SelectItem>
+                    <SelectItem value="metabolic">Metabolic</SelectItem>
+                    <SelectItem value="cardiac">Cardiac</SelectItem>
+                    <SelectItem value="conditioning_development_10_13">Conditioning Development (10-13y)</SelectItem>
+                    <SelectItem value="conditioning_adolescent_14_18">Conditioning Adolescent (14-18y)</SelectItem>
+                    <SelectItem value="conditioning_adult">Conditioning Adult</SelectItem>
+                    <SelectItem value="wellness">Wellness</SelectItem>
+                    <SelectItem value="geriatric">Geriatric</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="mainstream">Mainstream</Label>
+                <Select value={formData.mainstream || ''} onValueChange={(v) => setFormData({ ...formData, mainstream: v })}>
+                  <SelectTrigger data-testid="select-edit-patient-mainstream"><SelectValue placeholder="Select" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="yes">Yes</SelectItem>
+                    <SelectItem value="no">No</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
           </div>
           <DialogFooter>
             <DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose>
@@ -925,6 +963,44 @@ export default function AdminPage() {
                 className={formData.billingType !== 'medical_aid' ? 'bg-muted cursor-not-allowed' : ''}
                 data-testid="input-new-patient-medical-aid-name" 
               />
+            </div>
+            <div className="grid grid-cols-3 gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="gender">Gender</Label>
+                <Select value={formData.gender || ''} onValueChange={(v) => setFormData({ ...formData, gender: v })}>
+                  <SelectTrigger data-testid="select-new-patient-gender"><SelectValue placeholder="Select" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="male">Male</SelectItem>
+                    <SelectItem value="female">Female</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="populationGroup">Population Group</Label>
+                <Select value={formData.populationGroup || ''} onValueChange={(v) => setFormData({ ...formData, populationGroup: v })}>
+                  <SelectTrigger data-testid="select-new-patient-population-group"><SelectValue placeholder="Select" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="orthopaedic">Orthopaedic</SelectItem>
+                    <SelectItem value="metabolic">Metabolic</SelectItem>
+                    <SelectItem value="cardiac">Cardiac</SelectItem>
+                    <SelectItem value="conditioning_development_10_13">Conditioning Development (10-13y)</SelectItem>
+                    <SelectItem value="conditioning_adolescent_14_18">Conditioning Adolescent (14-18y)</SelectItem>
+                    <SelectItem value="conditioning_adult">Conditioning Adult</SelectItem>
+                    <SelectItem value="wellness">Wellness</SelectItem>
+                    <SelectItem value="geriatric">Geriatric</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="mainstream">Mainstream</Label>
+                <Select value={formData.mainstream || ''} onValueChange={(v) => setFormData({ ...formData, mainstream: v })}>
+                  <SelectTrigger data-testid="select-new-patient-mainstream"><SelectValue placeholder="Select" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="yes">Yes</SelectItem>
+                    <SelectItem value="no">No</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </div>
           <DialogFooter>
