@@ -81,6 +81,18 @@ export async function registerRoutes(
   app.post("/api/patients", async (req, res) => {
     try {
       const patientData = insertPatientSchema.parse(req.body);
+      
+      // Check for duplicate date of birth
+      if (patientData.dateOfBirth) {
+        const existingPatients = await storage.getAllPatients();
+        const duplicate = existingPatients.find(p => p.dateOfBirth === patientData.dateOfBirth);
+        if (duplicate) {
+          return res.status(409).json({ 
+            message: `A patient with this date of birth already exists: ${duplicate.firstName} ${duplicate.surname}` 
+          });
+        }
+      }
+      
       const patient = await storage.createPatient(patientData);
       res.status(201).json(patient);
     } catch (error) {
@@ -95,6 +107,18 @@ export async function registerRoutes(
     try {
       const id = parseInt(req.params.id);
       const patientData = insertPatientSchema.partial().parse(req.body);
+      
+      // Check for duplicate date of birth (excluding current patient)
+      if (patientData.dateOfBirth) {
+        const existingPatients = await storage.getAllPatients();
+        const duplicate = existingPatients.find(p => p.dateOfBirth === patientData.dateOfBirth && p.id !== id);
+        if (duplicate) {
+          return res.status(409).json({ 
+            message: `A patient with this date of birth already exists: ${duplicate.firstName} ${duplicate.surname}` 
+          });
+        }
+      }
+      
       const patient = await storage.updatePatient(id, patientData);
       if (!patient) {
         return res.status(404).json({ message: "Patient not found" });
