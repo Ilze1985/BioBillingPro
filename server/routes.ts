@@ -249,6 +249,17 @@ export async function registerRoutes(
     try {
       console.log("Session create request body:", JSON.stringify(req.body));
       const sessionData = insertSessionSchema.parse(req.body);
+      
+      // Validate weekly billing cannot have future dates
+      if (sessionData.billingFrequency === 'weekly') {
+        const today = new Date().toISOString().split('T')[0];
+        if (sessionData.date > today) {
+          return res.status(400).json({ 
+            message: "Weekly billing is done in arrears. Future dates are not allowed." 
+          });
+        }
+      }
+      
       console.log("Parsed session data:", JSON.stringify(sessionData));
       const session = await storage.createSession(sessionData);
       res.status(201).json(session);
@@ -350,6 +361,82 @@ export async function registerRoutes(
       res.status(204).send();
     } catch (error) {
       res.status(500).json({ message: "Failed to delete financial period" });
+    }
+  });
+
+  // Monthly billing rollover - copy previous month's sessions for active patients
+  app.post("/api/sessions/monthly-rollover", async (req, res) => {
+    try {
+      const { sourceMonth, targetMonth } = req.body;
+      
+      if (!sourceMonth || !targetMonth) {
+        return res.status(400).json({ message: "Source and target months are required" });
+      }
+      
+      // Get all monthly sessions from source month
+      const sessions = await storage.getAllSessions();
+      const patients = await storage.getAllPatients();
+      
+      // Filter to active monthly billing patients
+      const activePatientIds = new Set(
+        patients
+          .filter(p => p.monthlyBillingActive === 'yes')
+          .map(p => p.id)
+      );
+      
+      // Filter source month sessions (monthly frequency only, active patients)
+      const sourceMonthSessions = sessions.filter(s => {
+        const sessionMonth = s.date.substring(0, 7); // YYYY-MM
+        return sessionMonth === sourceMonth && 
+               s.billingFrequency === 'monthly' &&
+               activePatientIds.has(s.patientId);
+      });
+      
+      // Check for existing sessions in target month to avoid duplicates
+      const existingTargetSessions = sessions.filter(s => {
+        const sessionMonth = s.date.substring(0, 7);
+        return sessionMonth === targetMonth && s.billingFrequency === 'monthly';
+      });
+      
+      const existingPatientIds = new Set(existingTargetSessions.map(s => s.patientId));
+      
+      // Create new sessions for target month (skip if already exists)
+      const newSessions = [];
+      for (const sourceSession of sourceMonthSessions) {
+        if (existingPatientIds.has(sourceSession.patientId)) {
+          continue; // Skip - already has a session in target month
+        }
+        
+        // Calculate target date (same day of month, or last day if not valid)
+        const sourceDate = new Date(sourceSession.date);
+        const targetDate = new Date(targetMonth + '-01');
+        targetDate.setDate(Math.min(sourceDate.getDate(), new Date(targetDate.getFullYear(), targetDate.getMonth() + 1, 0).getDate()));
+        
+        const newSession = await storage.createSession({
+          practitionerId: sourceSession.practitionerId,
+          patientId: sourceSession.patientId,
+          billingCodeIds: sourceSession.billingCodeIds,
+          billingType: sourceSession.billingType,
+          billingFrequency: 'monthly',
+          date: targetDate.toISOString().split('T')[0],
+          time: sourceSession.time,
+          status: 'captured',
+          notes: sourceSession.notes,
+          discountPercent: sourceSession.discountPercent || 0
+        });
+        
+        newSessions.push(newSession);
+        existingPatientIds.add(sourceSession.patientId); // Prevent duplicates within batch
+      }
+      
+      res.status(201).json({
+        message: `Created ${newSessions.length} sessions for ${targetMonth}`,
+        created: newSessions.length,
+        skipped: sourceMonthSessions.length - newSessions.length
+      });
+    } catch (error) {
+      console.error("Monthly rollover error:", error);
+      res.status(500).json({ message: "Failed to perform monthly rollover" });
     }
   });
 

@@ -47,6 +47,7 @@ export const patients = pgTable("patients", {
   gender: genderEnum("gender"),
   populationGroup: populationGroupEnum("population_group"),
   mainstream: text("mainstream"),
+  monthlyBillingActive: text("monthly_billing_active").default('yes'),
 });
 
 export const patientsRelations = relations(patients, ({ many }) => ({

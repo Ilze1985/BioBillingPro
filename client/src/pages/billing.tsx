@@ -3,8 +3,12 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useSessions, useFinancialPeriods } from "@/lib/api";
-import { DollarSign, Calendar, TrendingUp } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { useSessions, useFinancialPeriods, usePatients, useMonthlyRollover } from "@/lib/api";
+import { useToast } from "@/hooks/use-toast";
+import { DollarSign, Calendar, TrendingUp, Copy, EyeOff, Eye } from "lucide-react";
 
 function getWeekNumber(sessionDate: string, periodStart: string): number {
   const session = new Date(sessionDate);
@@ -22,9 +26,20 @@ function formatCurrency(amount: number): string {
 export default function BillingPage() {
   const { data: sessions = [], isLoading: sessionsLoading } = useSessions();
   const { data: financialPeriods = [], isLoading: periodsLoading } = useFinancialPeriods();
+  const { data: patients = [] } = usePatients();
+  const monthlyRolloverMutation = useMonthlyRollover();
+  const { toast } = useToast();
   const [selectedPeriodId, setSelectedPeriodId] = useState<string>("");
+  const [showInactive, setShowInactive] = useState<boolean>(false);
 
   const selectedPeriod = financialPeriods.find(p => p.id.toString() === selectedPeriodId);
+  
+  // Build a map of patient IDs to their active status
+  const patientActiveMap = useMemo(() => {
+    const map = new Map<number, boolean>();
+    patients.forEach(p => map.set(p.id, p.monthlyBillingActive !== 'no'));
+    return map;
+  }, [patients]);
 
   const periodSessions = useMemo(() => {
     if (!selectedPeriod) return [];
@@ -67,17 +82,23 @@ export default function BillingPage() {
     return weeks;
   }, [weeklySessions, selectedPeriod]);
 
+  // Filter monthly sessions based on active/inactive toggle
+  const filteredMonthlySessions = useMemo(() => {
+    if (showInactive) return monthlySessions;
+    return monthlySessions.filter(session => patientActiveMap.get(session.patientId) !== false);
+  }, [monthlySessions, showInactive, patientActiveMap]);
+
   const monthlyData = useMemo(() => {
     const monthMap = new Map<string, { 
       month: string; 
       label: string; 
-      sessions: typeof monthlySessions; 
+      sessions: typeof filteredMonthlySessions; 
       total: number; 
       originalTotal: number;
       count: number; 
     }>();
 
-    monthlySessions.forEach(session => {
+    filteredMonthlySessions.forEach(session => {
       const date = new Date(session.date);
       const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
       const monthLabel = date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
@@ -101,19 +122,73 @@ export default function BillingPage() {
 
     const months = Array.from(monthMap.values()).sort((a, b) => a.month.localeCompare(b.month));
 
-    const totalRevenue = monthlySessions.reduce((sum, s) => sum + s.finalPrice, 0);
-    const totalOriginal = monthlySessions.reduce((sum, s) => sum + s.totalPrice, 0);
+    const totalRevenue = filteredMonthlySessions.reduce((sum, s) => sum + s.finalPrice, 0);
+    const totalOriginal = filteredMonthlySessions.reduce((sum, s) => sum + s.totalPrice, 0);
     const totalDiscount = totalOriginal - totalRevenue;
 
     return {
       months,
-      sessions: monthlySessions,
+      sessions: filteredMonthlySessions,
       totalRevenue,
       totalOriginal,
       totalDiscount,
-      count: monthlySessions.length,
+      count: filteredMonthlySessions.length,
     };
-  }, [monthlySessions]);
+  }, [filteredMonthlySessions, patientActiveMap]);
+
+  // Get the latest month from existing monthly sessions to use as source for rollover
+  const latestMonth = useMemo(() => {
+    if (monthlyData.months.length === 0) return null;
+    return monthlyData.months[monthlyData.months.length - 1].month;
+  }, [monthlyData.months]);
+
+  // Calculate next month for rollover target
+  const getNextMonth = (month: string): string => {
+    const [year, monthNum] = month.split('-').map(Number);
+    const nextDate = new Date(year, monthNum, 1); // monthNum is 0-indexed, so adding 1 month
+    return `${nextDate.getFullYear()}-${String(nextDate.getMonth() + 1).padStart(2, '0')}`;
+  };
+
+  const handleMonthlyRollover = async () => {
+    if (!latestMonth) {
+      toast({
+        title: "No Source Data",
+        description: "No monthly sessions found to copy from.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    const targetMonth = getNextMonth(latestMonth);
+    
+    try {
+      const result = await monthlyRolloverMutation.mutateAsync({
+        sourceMonth: latestMonth,
+        targetMonth: targetMonth,
+      });
+      
+      toast({
+        title: "Monthly Rollover Complete",
+        description: `Created ${result.created} sessions for ${targetMonth}. ${result.skipped > 0 ? `Skipped ${result.skipped} (already existed).` : ''}`,
+      });
+    } catch {
+      toast({
+        title: "Error",
+        description: "Failed to perform monthly rollover.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Count inactive patients in current view
+  const inactiveCount = useMemo(() => {
+    const uniquePatientIds = new Set(monthlySessions.map(s => s.patientId));
+    let inactive = 0;
+    uniquePatientIds.forEach(id => {
+      if (patientActiveMap.get(id) === false) inactive++;
+    });
+    return inactive;
+  }, [monthlySessions, patientActiveMap]);
 
   const weeklyTotal = weeklyData.reduce((sum, w) => sum + w.total, 0);
 
@@ -269,6 +344,35 @@ export default function BillingPage() {
           </TabsContent>
 
           <TabsContent value="monthly" className="mt-6 space-y-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center space-x-4">
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    id="show-inactive"
+                    checked={showInactive}
+                    onCheckedChange={setShowInactive}
+                    data-testid="switch-show-inactive"
+                  />
+                  <Label htmlFor="show-inactive" className="flex items-center gap-2 cursor-pointer">
+                    {showInactive ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+                    {showInactive ? 'Showing all patients' : 'Hiding inactive patients'}
+                    {inactiveCount > 0 && !showInactive && (
+                      <span className="text-xs text-muted-foreground">({inactiveCount} hidden)</span>
+                    )}
+                  </Label>
+                </div>
+              </div>
+              <Button
+                onClick={handleMonthlyRollover}
+                disabled={!latestMonth || monthlyRolloverMutation.isPending}
+                className="gap-2"
+                data-testid="button-monthly-rollover"
+              >
+                <Copy className="h-4 w-4" />
+                {monthlyRolloverMutation.isPending ? 'Creating...' : 'Generate Next Month'}
+              </Button>
+            </div>
+
             <div className="grid gap-4 md:grid-cols-3">
               <Card className="shadow-sm" data-testid="card-monthly-revenue">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">

@@ -74,6 +74,19 @@ export default function SessionsPage() {
   const handleSave = async () => {
     if (!selectedPractitionerId || !selectedPatientId || selectedCodeIds.length === 0) return;
 
+    // Prevent future dates for weekly billing
+    if (selectedBillingFrequency === 'weekly') {
+      const today = format(new Date(), "yyyy-MM-dd");
+      if (sessionDate > today) {
+        toast({
+          title: "Invalid Date",
+          description: "Weekly billing is done in arrears. Future dates are not allowed.",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
     const practitionerId = parseInt(selectedPractitionerId);
 
     const patient = patients.find(p => p.id === parseInt(selectedPatientId));
@@ -209,8 +222,12 @@ export default function SessionsPage() {
                     type="date" 
                     value={sessionDate} 
                     onChange={(e) => setSessionDate(e.target.value)}
+                    max={selectedBillingFrequency === 'weekly' ? format(new Date(), "yyyy-MM-dd") : undefined}
                     data-testid="input-date"
                   />
+                  {selectedBillingFrequency === 'weekly' && (
+                    <p className="text-xs text-muted-foreground">Weekly billing is done in arrears (no future dates)</p>
+                  )}
                   {(() => {
                     const matchingPeriod = financialPeriods.find(p => 
                       sessionDate >= p.startDate && sessionDate <= p.endDate

@@ -23,6 +23,7 @@ export interface Patient {
   gender: string | null;
   populationGroup: string | null;
   mainstream: string | null;
+  monthlyBillingActive: string | null;
 }
 
 export interface BillingCode {
@@ -31,6 +32,7 @@ export interface BillingCode {
   description: string;
   price: number;
   billingType: BillingType;
+  billingFrequency: 'weekly' | 'monthly';
 }
 
 export interface Session {
@@ -39,6 +41,7 @@ export interface Session {
   patientId: number;
   billingCodeIds: number[];
   billingType: BillingType;
+  billingFrequency: 'weekly' | 'monthly';
   date: string;
   time: string;
   notes: string | null;
@@ -238,6 +241,16 @@ async function updateFinancialPeriod(id: number, data: Partial<FinancialPeriod>)
 async function deleteFinancialPeriod(id: number): Promise<void> {
   const res = await fetch(`/api/financial-periods/${id}`, { method: 'DELETE' });
   if (!res.ok) throw new Error('Failed to delete financial period');
+}
+
+async function monthlyRollover(sourceMonth: string, targetMonth: string): Promise<{ message: string; created: number; skipped: number }> {
+  const res = await fetch('/api/sessions/monthly-rollover', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sourceMonth, targetMonth })
+  });
+  if (!res.ok) throw new Error('Failed to perform monthly rollover');
+  return res.json();
 }
 
 // React Query Hooks
@@ -441,6 +454,17 @@ export function useDeleteFinancialPeriod() {
     mutationFn: deleteFinancialPeriod,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['financialPeriods'] });
+      queryClient.invalidateQueries({ queryKey: ['sessions'] });
+    },
+  });
+}
+
+export function useMonthlyRollover() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ sourceMonth, targetMonth }: { sourceMonth: string; targetMonth: string }) => 
+      monthlyRollover(sourceMonth, targetMonth),
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sessions'] });
     },
   });

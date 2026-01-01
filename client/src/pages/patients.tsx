@@ -46,6 +46,7 @@ type PatientFormData = {
   gender: string;
   populationGroup: string;
   mainstream: string;
+  monthlyBillingActive: string;
 };
 
 const emptyFormData: PatientFormData = {
@@ -59,6 +60,7 @@ const emptyFormData: PatientFormData = {
   gender: "",
   populationGroup: "",
   mainstream: "",
+  monthlyBillingActive: "yes",
 };
 
 export default function PatientsPage() {
@@ -96,6 +98,7 @@ export default function PatientsPage() {
       gender: formData.gender || null,
       populationGroup: formData.populationGroup || null,
       mainstream: formData.mainstream || null,
+      monthlyBillingActive: formData.monthlyBillingActive || 'yes',
     }, {
       onSuccess: () => {
         setIsAddDialogOpen(false);
@@ -138,6 +141,7 @@ export default function PatientsPage() {
         gender: formData.gender || null,
         populationGroup: formData.populationGroup || null,
         mainstream: formData.mainstream || null,
+        monthlyBillingActive: formData.monthlyBillingActive || 'yes',
       }
     }, {
       onSuccess: () => {
@@ -194,6 +198,7 @@ export default function PatientsPage() {
         gender: patient.gender || "",
         populationGroup: patient.populationGroup || "",
         mainstream: patient.mainstream || "",
+        monthlyBillingActive: patient.monthlyBillingActive || "yes",
       });
       setEditPatient(patientId);
     }
@@ -335,6 +340,17 @@ export default function PatientsPage() {
             </SelectContent>
           </Select>
         </div>
+      </div>
+      <div className="grid gap-2">
+        <Label htmlFor="monthlyBillingActive">Monthly Billing Status</Label>
+        <Select value={formData.monthlyBillingActive} onValueChange={(v) => setFormData({ ...formData, monthlyBillingActive: v })}>
+          <SelectTrigger data-testid="select-monthly-billing-active"><SelectValue placeholder="Select" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="yes">Active</SelectItem>
+            <SelectItem value="no">Inactive</SelectItem>
+          </SelectContent>
+        </Select>
+        <p className="text-xs text-muted-foreground">Controls whether patient appears in monthly billing auto-population</p>
       </div>
     </div>
   );
