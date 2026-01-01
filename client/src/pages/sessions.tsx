@@ -262,7 +262,33 @@ export default function SessionsPage() {
               <div className="grid gap-2">
                 <Label>Tariff Codes</Label>
                 <div className="border rounded-md p-2 max-h-40 overflow-y-auto space-y-1">
-                  {billingCodes.map(c => (
+                  {[...billingCodes].sort((a, b) => {
+                    if (selectedBillingFrequency === 'weekly') {
+                      // Weekly: medical aid first, then EV, RE, PEN, EQ
+                      const weeklyPrefixOrder = ['EV', 'RE', 'PEN', 'EQ'];
+                      const getWeeklyOrder = (code: typeof a) => {
+                        if (code.billingType === 'medical_aid') return -1;
+                        for (let i = 0; i < weeklyPrefixOrder.length; i++) {
+                          if (code.code.startsWith(weeklyPrefixOrder[i])) return i;
+                        }
+                        return weeklyPrefixOrder.length;
+                      };
+                      const orderDiff = getWeeklyOrder(a) - getWeeklyOrder(b);
+                      if (orderDiff !== 0) return orderDiff;
+                    } else {
+                      // Monthly: PVT8, PVT12, PEN8, PEN12, FA8, FA12, PFA8, PFA12
+                      const monthlyPrefixOrder = ['PVT8', 'PVT12', 'PEN8', 'PEN12', 'FA8', 'FA12', 'PFA8', 'PFA12'];
+                      const getMonthlyOrder = (code: string) => {
+                        for (let i = 0; i < monthlyPrefixOrder.length; i++) {
+                          if (code.startsWith(monthlyPrefixOrder[i])) return i;
+                        }
+                        return monthlyPrefixOrder.length;
+                      };
+                      const orderDiff = getMonthlyOrder(a.code) - getMonthlyOrder(b.code);
+                      if (orderDiff !== 0) return orderDiff;
+                    }
+                    return a.code.localeCompare(b.code);
+                  }).map(c => (
                     <div key={c.id} className="flex items-center gap-2">
                       <input
                         type="checkbox"
