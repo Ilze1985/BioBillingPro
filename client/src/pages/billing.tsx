@@ -19,6 +19,26 @@ function getWeekNumber(sessionDate: string, periodStart: string): number {
   return Math.min(Math.max(weekIndex, 0), 3) + 1;
 }
 
+function getWeekDates(periodStart: string, weekNumber: number): { monday: Date; friday: Date } {
+  const start = new Date(periodStart);
+  // Find the Monday of the given week (week 1 starts at period start)
+  const monday = new Date(start);
+  monday.setDate(start.getDate() + (weekNumber - 1) * 7);
+  // Adjust to Monday if period doesn't start on Monday
+  const dayOfWeek = monday.getDay();
+  if (dayOfWeek !== 1) {
+    const daysToMonday = dayOfWeek === 0 ? 1 : (8 - dayOfWeek) % 7;
+    monday.setDate(monday.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
+  }
+  const friday = new Date(monday);
+  friday.setDate(monday.getDate() + 4);
+  return { monday, friday };
+}
+
+function formatShortDate(date: Date): string {
+  return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+}
+
 function formatCurrency(amount: number): string {
   return `R ${amount.toLocaleString()}`;
 }
@@ -258,18 +278,24 @@ export default function BillingPage() {
 
           <TabsContent value="weekly" className="mt-6 space-y-6">
             <div className="grid gap-4 md:grid-cols-4">
-              {weeklyData.map((week) => (
-                <Card key={week.week} className="shadow-sm" data-testid={`card-week-${week.week}`}>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Week {week.week}</CardTitle>
-                    <Calendar className="h-4 w-4 text-muted-foreground" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">{formatCurrency(week.total)}</div>
-                    <p className="text-xs text-muted-foreground">{week.count} session{week.count !== 1 ? 's' : ''}</p>
-                  </CardContent>
-                </Card>
-              ))}
+              {weeklyData.map((week) => {
+                const dates = getWeekDates(selectedPeriod.startDate, week.week);
+                return (
+                  <Card key={week.week} className="shadow-sm" data-testid={`card-week-${week.week}`}>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <div>
+                        <CardTitle className="text-sm font-medium">Week {week.week}</CardTitle>
+                        <p className="text-xs text-muted-foreground">{formatShortDate(dates.monday)} - {formatShortDate(dates.friday)}</p>
+                      </div>
+                      <Calendar className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">{formatCurrency(week.total)}</div>
+                      <p className="text-xs text-muted-foreground">{week.count} session{week.count !== 1 ? 's' : ''}</p>
+                    </CardContent>
+                  </Card>
+                );
+              })}
             </div>
 
             <Card className="shadow-sm">
@@ -288,18 +314,23 @@ export default function BillingPage() {
                     <thead className="[&_tr]:border-b">
                       <tr className="border-b transition-colors hover:bg-muted/50">
                         <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Week</th>
+                        <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Dates</th>
                         <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Sessions</th>
                         <th className="h-12 px-4 text-right align-middle font-medium text-muted-foreground">Revenue</th>
                       </tr>
                     </thead>
                     <tbody className="[&_tr:last-child]:border-0">
-                      {weeklyData.map((week) => (
-                        <tr key={week.week} className="border-b transition-colors hover:bg-muted/50" data-testid={`row-week-${week.week}`}>
-                          <td className="p-4 align-middle font-medium">Week {week.week}</td>
-                          <td className="p-4 align-middle text-muted-foreground">{week.count}</td>
-                          <td className="p-4 align-middle text-right font-medium">{formatCurrency(week.total)}</td>
-                        </tr>
-                      ))}
+                      {weeklyData.map((week) => {
+                        const dates = getWeekDates(selectedPeriod.startDate, week.week);
+                        return (
+                          <tr key={week.week} className="border-b transition-colors hover:bg-muted/50" data-testid={`row-week-${week.week}`}>
+                            <td className="p-4 align-middle font-medium">Week {week.week}</td>
+                            <td className="p-4 align-middle text-muted-foreground">{formatShortDate(dates.monday)} - {formatShortDate(dates.friday)}</td>
+                            <td className="p-4 align-middle text-muted-foreground">{week.count}</td>
+                            <td className="p-4 align-middle text-right font-medium">{formatCurrency(week.total)}</td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
