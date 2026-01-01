@@ -20,6 +20,12 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 function getWeekNumber(sessionDate: string, periodStart: string): number {
   const session = new Date(sessionDate);
@@ -460,45 +466,63 @@ export default function BillingPage() {
                   </Label>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button
-                      variant="outline"
-                      disabled={!latestMonth || undoRolloverMutation.isPending}
-                      className="gap-2"
-                      data-testid="button-undo-rollover"
-                    >
-                      <Undo2 className="h-4 w-4" />
-                      {undoRolloverMutation.isPending ? 'Deleting...' : 'Undo Last Month'}
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Undo Monthly Billing?</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        This will delete all monthly billing sessions for {latestMonth}. 
-                        This action cannot be undone. Are you sure you want to continue?
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      <AlertDialogAction onClick={handleUndoRollover} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                        Yes, Delete Sessions
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-                <Button
-                  onClick={handleMonthlyRollover}
-                  disabled={!latestMonth || monthlyRolloverMutation.isPending}
-                  className="gap-2"
-                  data-testid="button-monthly-rollover"
-                >
-                  <Copy className="h-4 w-4" />
-                  {monthlyRolloverMutation.isPending ? 'Creating...' : 'Generate Next Month'}
-                </Button>
-              </div>
+              <TooltipProvider>
+                <div className="flex items-center gap-2">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button
+                              variant="outline"
+                              disabled={!latestMonth || undoRolloverMutation.isPending}
+                              className="gap-2"
+                              data-testid="button-undo-rollover"
+                            >
+                              <Undo2 className="h-4 w-4" />
+                              {undoRolloverMutation.isPending ? 'Deleting...' : 'Undo Last Month'}
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Undo Monthly Billing?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                This will delete all monthly billing sessions for {latestMonth}. 
+                                This action cannot be undone. Are you sure you want to continue?
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction onClick={handleUndoRollover} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                                Yes, Delete Sessions
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="max-w-xs">
+                      <p>Deletes all monthly billing sessions for the most recent month. Use this if you generated the next month prematurely or need to correct billing data.</p>
+                    </TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        onClick={handleMonthlyRollover}
+                        disabled={!latestMonth || monthlyRolloverMutation.isPending}
+                        className="gap-2"
+                        data-testid="button-monthly-rollover"
+                      >
+                        <Copy className="h-4 w-4" />
+                        {monthlyRolloverMutation.isPending ? 'Creating...' : 'Generate Next Month'}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="max-w-xs">
+                      <p>Copies all active monthly billing patients from the current month to create sessions for the next month. Re-running will replace any existing sessions for the target month.</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
+              </TooltipProvider>
             </div>
 
             <div className="grid gap-4 md:grid-cols-3">
