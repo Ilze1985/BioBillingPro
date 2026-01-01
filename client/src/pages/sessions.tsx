@@ -44,6 +44,8 @@ export default function SessionsPage() {
   const [timeNotApplicable, setTimeNotApplicable] = useState(false);
   const [sessionNotes, setSessionNotes] = useState("");
   const [discountAmount, setDiscountAmount] = useState<number>(0);
+  const [patientSearchTerm, setPatientSearchTerm] = useState("");
+  const [codeSearchTerm, setCodeSearchTerm] = useState("");
 
   // Fetch billing codes based on selected type
   // Private and private_cash share the same tariff codes
@@ -93,6 +95,8 @@ export default function SessionsPage() {
       setDiscountAmount(0);
       setTimeNotApplicable(false);
       setSessionTime("09:00");
+      setPatientSearchTerm("");
+      setCodeSearchTerm("");
       
       toast({
         title: "Session Captured",
@@ -170,9 +174,23 @@ export default function SessionsPage() {
                     <SelectValue placeholder="Select patient" />
                   </SelectTrigger>
                   <SelectContent>
-                    {patients.map(p => (
-                      <SelectItem key={p.id} value={p.id.toString()}>{p.firstName} {p.surname}</SelectItem>
-                    ))}
+                    <div className="px-2 pb-2">
+                      <Input
+                        placeholder="Search patients..."
+                        value={patientSearchTerm}
+                        onChange={(e) => setPatientSearchTerm(e.target.value)}
+                        className="h-8"
+                        data-testid="input-patient-search"
+                      />
+                    </div>
+                    {patients
+                      .filter(p => {
+                        const fullName = `${p.firstName} ${p.surname}`.toLowerCase();
+                        return fullName.includes(patientSearchTerm.toLowerCase());
+                      })
+                      .map(p => (
+                        <SelectItem key={p.id} value={p.id.toString()}>{p.firstName} {p.surname}</SelectItem>
+                      ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -276,8 +294,21 @@ export default function SessionsPage() {
               )}
               <div className="grid gap-2">
                 <Label>Tariff Codes</Label>
+                <Input
+                  placeholder="Search codes..."
+                  value={codeSearchTerm}
+                  onChange={(e) => setCodeSearchTerm(e.target.value)}
+                  className="h-8 mb-2"
+                  data-testid="input-code-search"
+                />
                 <div className="border rounded-md p-2 max-h-40 overflow-y-auto space-y-1">
-                  {[...billingCodes].sort((a, b) => {
+                  {[...billingCodes]
+                    .filter(c => {
+                      const searchLower = codeSearchTerm.toLowerCase();
+                      return c.code.toLowerCase().includes(searchLower) || 
+                             c.description.toLowerCase().includes(searchLower);
+                    })
+                    .sort((a, b) => {
                     if (selectedBillingFrequency === 'weekly') {
                       // Weekly: medical aid first, then EV, RE, PEN, EQ
                       const weeklyPrefixOrder = ['EV', 'RE', 'PEN', 'EQ'];
