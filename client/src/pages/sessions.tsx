@@ -38,6 +38,7 @@ export default function SessionsPage() {
   const [selectedPatientId, setSelectedPatientId] = useState("");
   const [selectedCodeIds, setSelectedCodeIds] = useState<string[]>([]);
   const [selectedBillingType, setSelectedBillingType] = useState<BillingType>("medical_aid");
+  const [selectedBillingFrequency, setSelectedBillingFrequency] = useState<"weekly" | "monthly">("weekly");
   const [sessionDate, setSessionDate] = useState(format(new Date(), "yyyy-MM-dd"));
   const [sessionTime, setSessionTime] = useState("09:00");
   const [timeNotApplicable, setTimeNotApplicable] = useState(false);
@@ -71,6 +72,7 @@ export default function SessionsPage() {
         patientId: patient.id,
         billingCodeIds: codeIds,
         billingType: selectedBillingType,
+        billingFrequency: selectedBillingFrequency,
         date: sessionDate,
         time: timeNotApplicable ? 'N/A' : sessionTime,
         status: 'captured',
@@ -84,6 +86,7 @@ export default function SessionsPage() {
       setSelectedCodeIds([]);
       setSessionNotes("");
       setSelectedBillingType("medical_aid");
+      setSelectedBillingFrequency("weekly");
       setDiscountAmount(0);
       setTimeNotApplicable(false);
       setSessionTime("09:00");
@@ -206,18 +209,32 @@ export default function SessionsPage() {
                   </div>
                 </div>
               </div>
-              <div className="grid gap-2">
-                <Label htmlFor="billingType">Billing Type</Label>
-                <Select value={selectedBillingType} onValueChange={(v) => setSelectedBillingType(v as BillingType)}>
-                  <SelectTrigger id="billingType" data-testid="select-billing-type">
-                    <SelectValue placeholder="Select billing type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="medical_aid">Medical Aid</SelectItem>
-                    <SelectItem value="private">Private</SelectItem>
-                    <SelectItem value="private_cash">Private Cash</SelectItem>
-                  </SelectContent>
-                </Select>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="billingType">Billing Type</Label>
+                  <Select value={selectedBillingType} onValueChange={(v) => setSelectedBillingType(v as BillingType)}>
+                    <SelectTrigger id="billingType" data-testid="select-billing-type">
+                      <SelectValue placeholder="Select billing type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="medical_aid">Medical Aid</SelectItem>
+                      <SelectItem value="private">Private</SelectItem>
+                      <SelectItem value="private_cash">Private Cash</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="billingFrequency">Billing Frequency</Label>
+                  <Select value={selectedBillingFrequency} onValueChange={(v) => setSelectedBillingFrequency(v as "weekly" | "monthly")}>
+                    <SelectTrigger id="billingFrequency" data-testid="select-billing-frequency">
+                      <SelectValue placeholder="Select frequency" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="weekly">Weekly</SelectItem>
+                      <SelectItem value="monthly">Monthly</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
               {(selectedBillingType === 'private' || selectedBillingType === 'private_cash') && (
                 <div className="grid gap-2">

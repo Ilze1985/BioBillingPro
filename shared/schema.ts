@@ -60,6 +60,7 @@ export const sessions = pgTable("sessions", {
   patientId: integer("patient_id").notNull().references(() => patients.id),
   billingCodeIds: integer("billing_code_ids").array().notNull(),
   billingType: billingTypeEnum("billing_type").notNull().default('medical_aid'),
+  billingFrequency: billingFrequencyEnum("billing_frequency").notNull().default('weekly'),
   date: text("date").notNull(),
   time: text("time").notNull(),
   notes: text("notes"),
