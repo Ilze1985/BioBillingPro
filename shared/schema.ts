@@ -6,6 +6,7 @@ import { z } from "zod";
 export const userRoleEnum = pgEnum('user_role', ['admin', 'practitioner']);
 export const sessionStatusEnum = pgEnum('session_status', ['captured', 'invoiced', 'paid']);
 export const billingTypeEnum = pgEnum('billing_type', ['medical_aid', 'private', 'private_cash']);
+export const billingFrequencyEnum = pgEnum('billing_frequency', ['weekly', 'monthly']);
 
 export const financialPeriods = pgTable("financial_periods", {
   id: serial("id").primaryKey(),
@@ -46,6 +47,7 @@ export const billingCodes = pgTable("billing_codes", {
   description: text("description").notNull(),
   price: integer("price").notNull(),
   billingType: billingTypeEnum("billing_type").notNull().default('medical_aid'),
+  billingFrequency: billingFrequencyEnum("billing_frequency").notNull().default('weekly'),
 });
 
 export const billingCodesRelations = relations(billingCodes, ({ many }) => ({
