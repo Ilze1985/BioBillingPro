@@ -38,6 +38,8 @@ export default function SessionsPage() {
   
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedPeriodFilter, setSelectedPeriodFilter] = useState<string>("all");
+  const [practitionerFilter, setPractitionerFilter] = useState<string>("all");
+  const [frequencyFilter, setFrequencyFilter] = useState<string>("all");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [currentUserRole, setCurrentUserRole] = useState<string>("practitioner");
 
@@ -191,7 +193,14 @@ export default function SessionsPage() {
       (selectedPeriodFilter === "none" && !session.financialPeriodId) ||
       session.financialPeriodId?.toString() === selectedPeriodFilter;
     
-    return matchesSearch && matchesPeriod;
+    // Only apply practitioner/frequency filters for receptionist/admin roles
+    const matchesPractitioner = !canMarkAsInvoiced || practitionerFilter === "all" || 
+      session.practitionerId?.toString() === practitionerFilter;
+    
+    const matchesFrequency = !canMarkAsInvoiced || frequencyFilter === "all" || 
+      session.billingFrequency === frequencyFilter;
+    
+    return matchesSearch && matchesPeriod && matchesPractitioner && matchesFrequency;
   });
 
   if (isLoading) {
@@ -534,6 +543,31 @@ export default function SessionsPage() {
                   ))}
                 </SelectContent>
               </Select>
+              {canMarkAsInvoiced && (
+                <>
+                  <Select value={practitionerFilter} onValueChange={setPractitionerFilter}>
+                    <SelectTrigger className="h-9 w-[160px]" data-testid="select-practitioner-filter">
+                      <SelectValue placeholder="Practitioner" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Practitioners</SelectItem>
+                      {users.map(u => (
+                        <SelectItem key={u.id} value={u.id.toString()}>{u.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Select value={frequencyFilter} onValueChange={setFrequencyFilter}>
+                    <SelectTrigger className="h-9 w-[140px]" data-testid="select-frequency-filter">
+                      <SelectValue placeholder="Billing Type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Billing</SelectItem>
+                      <SelectItem value="weekly">Weekly</SelectItem>
+                      <SelectItem value="monthly">Monthly</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </>
+              )}
             </div>
           </div>
         </CardHeader>
