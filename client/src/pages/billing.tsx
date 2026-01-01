@@ -3,7 +3,7 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useSessions, useFinancialPeriods } from "@/lib/api";
+import { useSessions, useFinancialPeriods, useBillingCodes } from "@/lib/api";
 import { DollarSign, Calendar, TrendingUp } from "lucide-react";
 
 function getWeekNumber(sessionDate: string, periodStart: string): number {
@@ -22,9 +22,18 @@ function formatCurrency(amount: number): string {
 export default function BillingPage() {
   const { data: sessions = [], isLoading: sessionsLoading } = useSessions();
   const { data: financialPeriods = [], isLoading: periodsLoading } = useFinancialPeriods();
+  const { data: billingCodes = [], isLoading: codesLoading } = useBillingCodes();
   const [selectedPeriodId, setSelectedPeriodId] = useState<string>("");
 
   const selectedPeriod = financialPeriods.find(p => p.id.toString() === selectedPeriodId);
+
+  const codeFrequencyMap = useMemo(() => {
+    const map = new Map<string, string>();
+    billingCodes.forEach(code => {
+      map.set(code.code, code.billingFrequency);
+    });
+    return map;
+  }, [billingCodes]);
 
   const periodSessions = useMemo(() => {
     if (!selectedPeriod) return [];
@@ -32,6 +41,18 @@ export default function BillingPage() {
       s.date >= selectedPeriod.startDate && s.date <= selectedPeriod.endDate
     );
   }, [sessions, selectedPeriod]);
+
+  const weeklySessions = useMemo(() => {
+    return periodSessions.filter(session => {
+      return session.billingCodes.some(code => codeFrequencyMap.get(code) === 'weekly');
+    });
+  }, [periodSessions, codeFrequencyMap]);
+
+  const monthlySessions = useMemo(() => {
+    return periodSessions.filter(session => {
+      return session.billingCodes.some(code => codeFrequencyMap.get(code) === 'monthly');
+    });
+  }, [periodSessions, codeFrequencyMap]);
 
   const weeklyData = useMemo(() => {
     if (!selectedPeriod) return [
@@ -48,7 +69,7 @@ export default function BillingPage() {
       { week: 4, sessions: [] as typeof sessions, total: 0, count: 0 },
     ];
 
-    periodSessions.forEach(session => {
+    weeklySessions.forEach(session => {
       const weekNum = getWeekNumber(session.date, selectedPeriod.startDate);
       const weekIndex = weekNum - 1;
       weeks[weekIndex].sessions.push(session);
@@ -57,23 +78,19 @@ export default function BillingPage() {
     });
 
     return weeks;
-  }, [periodSessions, selectedPeriod]);
+  }, [weeklySessions, selectedPeriod]);
 
   const monthlyData = useMemo(() => {
-    const privateSessions = periodSessions.filter(s => 
-      s.billingType === 'private' || s.billingType === 'private_cash'
-    );
-
     const monthMap = new Map<string, { 
       month: string; 
       label: string; 
-      sessions: typeof privateSessions; 
+      sessions: typeof monthlySessions; 
       total: number; 
       originalTotal: number;
       count: number; 
     }>();
 
-    privateSessions.forEach(session => {
+    monthlySessions.forEach(session => {
       const date = new Date(session.date);
       const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
       const monthLabel = date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
@@ -97,23 +114,23 @@ export default function BillingPage() {
 
     const months = Array.from(monthMap.values()).sort((a, b) => a.month.localeCompare(b.month));
 
-    const totalRevenue = privateSessions.reduce((sum, s) => sum + s.finalPrice, 0);
-    const totalOriginal = privateSessions.reduce((sum, s) => sum + s.totalPrice, 0);
+    const totalRevenue = monthlySessions.reduce((sum, s) => sum + s.finalPrice, 0);
+    const totalOriginal = monthlySessions.reduce((sum, s) => sum + s.totalPrice, 0);
     const totalDiscount = totalOriginal - totalRevenue;
 
     return {
       months,
-      sessions: privateSessions,
+      sessions: monthlySessions,
       totalRevenue,
       totalOriginal,
       totalDiscount,
-      count: privateSessions.length,
+      count: monthlySessions.length,
     };
-  }, [periodSessions]);
+  }, [monthlySessions]);
 
   const weeklyTotal = weeklyData.reduce((sum, w) => sum + w.total, 0);
 
-  if (sessionsLoading || periodsLoading) {
+  if (sessionsLoading || periodsLoading || codesLoading) {
     return (
       <AppLayout>
         <div className="flex items-center justify-center h-96">
@@ -229,12 +246,12 @@ export default function BillingPage() {
                       </tr>
                     </thead>
                     <tbody className="[&_tr:last-child]:border-0">
-                      {periodSessions.length === 0 ? (
+                      {weeklySessions.length === 0 ? (
                         <tr>
-                          <td colSpan={6} className="p-4 text-center text-muted-foreground">No sessions in this period</td>
+                          <td colSpan={6} className="p-4 text-center text-muted-foreground">No weekly billing sessions in this period</td>
                         </tr>
                       ) : (
-                        periodSessions.map((session) => (
+                        weeklySessions.map((session) => (
                           <tr key={session.id} className="border-b transition-colors hover:bg-muted/50" data-testid={`row-session-${session.id}`}>
                             <td className="p-4 align-middle">
                               <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold bg-blue-100 text-blue-800">
@@ -273,7 +290,7 @@ export default function BillingPage() {
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold text-primary">{formatCurrency(monthlyData.totalRevenue)}</div>
-                  <p className="text-xs text-muted-foreground">Private billing only</p>
+                  <p className="text-xs text-muted-foreground">Monthly billing codes</p>
                 </CardContent>
               </Card>
               <Card className="shadow-sm" data-testid="card-monthly-sessions">
@@ -283,7 +300,7 @@ export default function BillingPage() {
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">{monthlyData.count}</div>
-                  <p className="text-xs text-muted-foreground">Private & private cash</p>
+                  <p className="text-xs text-muted-foreground">Monthly frequency codes</p>
                 </CardContent>
               </Card>
               <Card className="shadow-sm" data-testid="card-monthly-discount">
@@ -317,7 +334,7 @@ export default function BillingPage() {
                     <tbody className="[&_tr:last-child]:border-0">
                       {monthlyData.months.length === 0 ? (
                         <tr>
-                          <td colSpan={5} className="p-4 text-center text-muted-foreground">No private billing sessions in this period</td>
+                          <td colSpan={5} className="p-4 text-center text-muted-foreground">No monthly billing sessions in this period</td>
                         </tr>
                       ) : (
                         monthlyData.months.map((month) => (
@@ -357,7 +374,7 @@ export default function BillingPage() {
                     <tbody className="[&_tr:last-child]:border-0">
                       {monthlyData.sessions.length === 0 ? (
                         <tr>
-                          <td colSpan={7} className="p-4 text-center text-muted-foreground">No private billing sessions in this period</td>
+                          <td colSpan={7} className="p-4 text-center text-muted-foreground">No monthly billing sessions in this period</td>
                         </tr>
                       ) : (
                         monthlyData.sessions.map((session) => {
