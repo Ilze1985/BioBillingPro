@@ -624,7 +624,40 @@ export default function SessionsPage() {
         <SessionHistoryCard />
       )}
 
-      <ReadyToSendDialog />
+      <Dialog open={isReadyToSendDialogOpen} onOpenChange={setIsReadyToSendDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Ready to Send Statement</DialogTitle>
+            <DialogDescription>
+              Add a note about the statement type before marking as ready to send.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="statement-note">Statement Type Note</Label>
+              <Textarea
+                id="statement-note"
+                value={statementNote}
+                onChange={(e) => setStatementNote(e.target.value)}
+                placeholder="e.g., Medical aid claim, Private account statement..."
+                data-testid="input-statement-note"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="outline">Cancel</Button>
+            </DialogClose>
+            <Button 
+              onClick={handleReadyToSend} 
+              disabled={!statementNote.trim() || updateStatementStatusMutation.isPending}
+              data-testid="button-confirm-ready"
+            >
+              Mark Ready to Send
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AppLayout>
   );
 
@@ -934,45 +967,6 @@ export default function SessionsPage() {
           )}
         </CardContent>
       </Card>
-    );
-  }
-
-  function ReadyToSendDialog() {
-    return (
-      <Dialog open={isReadyToSendDialogOpen} onOpenChange={setIsReadyToSendDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Ready to Send Statement</DialogTitle>
-            <DialogDescription>
-              Add a note about the statement type before marking as ready to send.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="statement-note">Statement Type Note</Label>
-              <Textarea
-                id="statement-note"
-                value={statementNote}
-                onChange={(e) => setStatementNote(e.target.value)}
-                placeholder="e.g., Medical aid claim, Private account statement..."
-                data-testid="input-statement-note"
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button variant="outline">Cancel</Button>
-            </DialogClose>
-            <Button 
-              onClick={handleReadyToSend} 
-              disabled={!statementNote.trim() || updateStatementStatusMutation.isPending}
-              data-testid="button-confirm-ready"
-            >
-              Mark Ready to Send
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     );
   }
 }
