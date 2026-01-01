@@ -6,6 +6,7 @@ import {
   LogOut, 
   FileSpreadsheet,
   Receipt,
+  Cake,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUsers } from "@/lib/api";
@@ -19,6 +20,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     { name: "Dashboard", href: "/", icon: LayoutDashboard },
     { name: "Sessions", href: "/sessions", icon: CalendarDays },
     { name: "Patients", href: "/patients", icon: Users },
+    { name: "Birthdays", href: "/birthdays", icon: Cake },
     { name: "Billing", href: "/billing", icon: Receipt },
     { name: "Admin View", href: "/admin", icon: FileSpreadsheet, adminOnly: true },
   ];
