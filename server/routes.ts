@@ -844,7 +844,9 @@ export async function registerRoutes(
         });
       }
 
-      const statement = await storage.updateMonthlyBillingStatementStatus(id, status, statementTypeNote);
+      // If marking as statement_sent, also set status to archived (same as weekly)
+      const finalStatus = status === 'statement_sent' ? 'archived' : status;
+      const statement = await storage.updateMonthlyBillingStatementStatus(id, finalStatus, statementTypeNote);
       if (!statement) {
         return res.status(404).json({ message: "Statement not found" });
       }

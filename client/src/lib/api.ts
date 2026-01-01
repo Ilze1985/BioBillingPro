@@ -626,6 +626,7 @@ export function useUpdateWeeklyBillingStatementStatus() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['weeklyBillingStatements'] });
       queryClient.invalidateQueries({ queryKey: ['allWeeklyBillingStatements'] });
+      queryClient.invalidateQueries({ queryKey: ['archivedWeeklyBillingStatements'] });
     },
   });
 }
