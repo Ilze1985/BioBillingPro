@@ -123,6 +123,38 @@ export const weeklyBillingStatementsRelations = relations(weeklyBillingStatement
   }),
 }));
 
+export const monthlyBillingStatements = pgTable("monthly_billing_statements", {
+  id: serial("id").primaryKey(),
+  patientId: integer("patient_id").notNull().references(() => patients.id),
+  financialPeriodId: integer("financial_period_id").references(() => financialPeriods.id),
+  practitionerId: integer("practitioner_id").references(() => users.id),
+  sessionId: integer("session_id").references(() => sessions.id),
+  status: statementStatusEnum("status").notNull().default('awaiting_review'),
+  statementTypeNote: text("statement_type_note"),
+  totalAmount: integer("total_amount").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const monthlyBillingStatementsRelations = relations(monthlyBillingStatements, ({ one }) => ({
+  patient: one(patients, {
+    fields: [monthlyBillingStatements.patientId],
+    references: [patients.id],
+  }),
+  financialPeriod: one(financialPeriods, {
+    fields: [monthlyBillingStatements.financialPeriodId],
+    references: [financialPeriods.id],
+  }),
+  practitioner: one(users, {
+    fields: [monthlyBillingStatements.practitionerId],
+    references: [users.id],
+  }),
+  session: one(sessions, {
+    fields: [monthlyBillingStatements.sessionId],
+    references: [sessions.id],
+  }),
+}));
+
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).omit({ id: true });
 export const insertPatientSchema = createInsertSchema(patients).omit({ id: true });
@@ -132,6 +164,7 @@ export const insertSessionSchema = createInsertSchema(sessions).omit({ id: true,
 });
 export const insertFinancialPeriodSchema = createInsertSchema(financialPeriods).omit({ id: true });
 export const insertWeeklyBillingStatementSchema = createInsertSchema(weeklyBillingStatements).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertMonthlyBillingStatementSchema = createInsertSchema(monthlyBillingStatements).omit({ id: true, createdAt: true, updatedAt: true });
 
 // Types
 export type User = typeof users.$inferSelect;
@@ -151,3 +184,6 @@ export type InsertFinancialPeriod = z.infer<typeof insertFinancialPeriodSchema>;
 
 export type WeeklyBillingStatement = typeof weeklyBillingStatements.$inferSelect;
 export type InsertWeeklyBillingStatement = z.infer<typeof insertWeeklyBillingStatementSchema>;
+
+export type MonthlyBillingStatement = typeof monthlyBillingStatements.$inferSelect;
+export type InsertMonthlyBillingStatement = z.infer<typeof insertMonthlyBillingStatementSchema>;
