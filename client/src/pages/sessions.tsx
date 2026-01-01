@@ -186,7 +186,7 @@ export default function SessionsPage() {
               Capture New Session
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[425px]">
+          <DialogContent className="sm:max-w-[700px]">
             <DialogHeader>
               <DialogTitle>Capture Session</DialogTitle>
               <DialogDescription>
