@@ -344,10 +344,88 @@ export async function registerRoutes(
         });
       }
 
+      // Get the session before updating
+      const existingSession = await storage.getSession(id);
+      if (!existingSession) {
+        return res.status(404).json({ message: "Session not found" });
+      }
+
       const session = await storage.updateSessionStatus(id, status);
       if (!session) {
         return res.status(404).json({ message: "Session not found" });
       }
+      
+      // Auto-create weekly billing statement when marking weekly session as invoiced
+      if (status === 'invoiced' && session.billingFrequency === 'weekly') {
+        try {
+          // Find the financial period based on session date
+          const allPeriods = await storage.getAllFinancialPeriods();
+          const sessionDateStr = session.date;
+          const period = allPeriods.find(p => {
+            return sessionDateStr >= p.startDate && sessionDateStr <= p.endDate;
+          });
+          
+          if (period) {
+            // Calculate week boundaries based on session date
+            const sessionDate = new Date(session.date);
+            const periodStart = new Date(period.startDate);
+            const diffTime = sessionDate.getTime() - periodStart.getTime();
+            const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+            const weekNumber = Math.floor(diffDays / 7) + 1;
+            
+            // Calculate week start (Monday) and end (Sunday) dates
+            const weekStart = new Date(periodStart);
+            weekStart.setDate(periodStart.getDate() + (weekNumber - 1) * 7);
+            const dayOfWeek = weekStart.getDay();
+            if (dayOfWeek !== 1) {
+              weekStart.setDate(weekStart.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
+            }
+            const weekEnd = new Date(weekStart);
+            weekEnd.setDate(weekStart.getDate() + 6);
+            
+            const weekStartStr = weekStart.toISOString().split('T')[0];
+            const weekEndStr = weekEnd.toISOString().split('T')[0];
+            
+            // Check if a statement already exists for this patient/practitioner/period/week
+            const existingStatements = await storage.getAllWeeklyBillingStatements();
+            const existingStatement = existingStatements.find(s => 
+              s.patientId === session.patientId &&
+              s.practitionerId === session.practitionerId &&
+              s.financialPeriodId === period.id &&
+              s.weekStartDate === weekStartStr &&
+              s.weekEndDate === weekEndStr
+            );
+            
+            // Calculate session total
+            const billingCodes = await storage.getAllBillingCodes();
+            const sessionTotal = (session.billingCodeIds || []).reduce((sum, codeId) => {
+              const code = billingCodes.find(c => c.id === codeId);
+              return sum + (code?.price || 0);
+            }, 0);
+            
+            if (existingStatement) {
+              // Update existing statement total
+              await storage.updateWeeklyBillingStatement(existingStatement.id, {
+                totalAmount: (existingStatement.totalAmount || 0) + sessionTotal
+              });
+            } else {
+              // Create new statement
+              await storage.createWeeklyBillingStatement({
+                patientId: session.patientId,
+                practitionerId: session.practitionerId,
+                financialPeriodId: period.id,
+                weekStartDate: weekStartStr,
+                weekEndDate: weekEndStr,
+                status: 'awaiting_review',
+                totalAmount: sessionTotal
+              });
+            }
+          }
+        } catch (statementError) {
+          console.error("Failed to create/update weekly billing statement:", statementError);
+        }
+      }
+      
       res.json(session);
     } catch (error) {
       res.status(500).json({ message: "Failed to update session status" });
