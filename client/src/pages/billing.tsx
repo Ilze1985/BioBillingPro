@@ -3,7 +3,7 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useSessions, useFinancialPeriods, useBillingCodes } from "@/lib/api";
+import { useSessions, useFinancialPeriods } from "@/lib/api";
 import { DollarSign, Calendar, TrendingUp } from "lucide-react";
 
 function getWeekNumber(sessionDate: string, periodStart: string): number {
@@ -22,18 +22,9 @@ function formatCurrency(amount: number): string {
 export default function BillingPage() {
   const { data: sessions = [], isLoading: sessionsLoading } = useSessions();
   const { data: financialPeriods = [], isLoading: periodsLoading } = useFinancialPeriods();
-  const { data: billingCodes = [], isLoading: codesLoading } = useBillingCodes();
   const [selectedPeriodId, setSelectedPeriodId] = useState<string>("");
 
   const selectedPeriod = financialPeriods.find(p => p.id.toString() === selectedPeriodId);
-
-  const codeFrequencyMap = useMemo(() => {
-    const map = new Map<string, string>();
-    billingCodes.forEach(code => {
-      map.set(code.code, code.billingFrequency);
-    });
-    return map;
-  }, [billingCodes]);
 
   const periodSessions = useMemo(() => {
     if (!selectedPeriod) return [];
@@ -43,16 +34,12 @@ export default function BillingPage() {
   }, [sessions, selectedPeriod]);
 
   const weeklySessions = useMemo(() => {
-    return periodSessions.filter(session => {
-      return session.billingCodes.some(code => codeFrequencyMap.get(code) === 'weekly');
-    });
-  }, [periodSessions, codeFrequencyMap]);
+    return periodSessions.filter(session => session.billingFrequency === 'weekly');
+  }, [periodSessions]);
 
   const monthlySessions = useMemo(() => {
-    return periodSessions.filter(session => {
-      return session.billingCodes.some(code => codeFrequencyMap.get(code) === 'monthly');
-    });
-  }, [periodSessions, codeFrequencyMap]);
+    return periodSessions.filter(session => session.billingFrequency === 'monthly');
+  }, [periodSessions]);
 
   const weeklyData = useMemo(() => {
     if (!selectedPeriod) return [
@@ -130,7 +117,7 @@ export default function BillingPage() {
 
   const weeklyTotal = weeklyData.reduce((sum, w) => sum + w.total, 0);
 
-  if (sessionsLoading || periodsLoading || codesLoading) {
+  if (sessionsLoading || periodsLoading) {
     return (
       <AppLayout>
         <div className="flex items-center justify-center h-96">
