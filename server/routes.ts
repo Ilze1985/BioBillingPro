@@ -6,7 +6,8 @@ import {
   insertPatientSchema, 
   insertBillingCodeSchema, 
   insertSessionSchema,
-  insertFinancialPeriodSchema
+  insertFinancialPeriodSchema,
+  insertWeeklyBillingStatementSchema
 } from "@shared/schema";
 import { z } from "zod";
 import multer from "multer";
@@ -578,6 +579,82 @@ export async function registerRoutes(
       res.json(enrichedSessions);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch enriched sessions" });
+    }
+  });
+
+  // Weekly Billing Statements
+  app.get("/api/weekly-billing-statements", async (_req, res) => {
+    try {
+      const statements = await storage.getActiveWeeklyBillingStatements();
+      res.json(statements);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch weekly billing statements" });
+    }
+  });
+
+  app.get("/api/weekly-billing-statements/all", async (_req, res) => {
+    try {
+      const statements = await storage.getAllWeeklyBillingStatements();
+      res.json(statements);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch all weekly billing statements" });
+    }
+  });
+
+  app.post("/api/weekly-billing-statements", async (req, res) => {
+    try {
+      const statementData = insertWeeklyBillingStatementSchema.parse(req.body);
+      const statement = await storage.createWeeklyBillingStatement(statementData);
+      res.status(201).json(statement);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid statement data", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to create weekly billing statement" });
+    }
+  });
+
+  app.patch("/api/weekly-billing-statements/:id/status", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { status, statementTypeNote } = req.body;
+      const userRole = req.headers['x-user-role'] as string;
+      
+      if (!['awaiting_review', 'ready_to_send', 'statement_sent', 'archived'].includes(status)) {
+        return res.status(400).json({ message: "Invalid status value" });
+      }
+      
+      // Only admin can mark as ready_to_send
+      if (status === 'ready_to_send' && userRole !== 'admin') {
+        return res.status(403).json({ 
+          message: "Only administrators can mark statements as ready to send." 
+        });
+      }
+      
+      // Only receptionist or admin can mark as statement_sent
+      if (status === 'statement_sent' && userRole !== 'receptionist' && userRole !== 'admin') {
+        return res.status(403).json({ 
+          message: "Only receptionists or administrators can mark statements as sent." 
+        });
+      }
+
+      const statement = await storage.updateWeeklyBillingStatementStatus(id, status, statementTypeNote);
+      if (!statement) {
+        return res.status(404).json({ message: "Statement not found" });
+      }
+      res.json(statement);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to update statement status" });
+    }
+  });
+
+  app.delete("/api/weekly-billing-statements/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await storage.deleteWeeklyBillingStatement(id);
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete weekly billing statement" });
     }
   });
 
