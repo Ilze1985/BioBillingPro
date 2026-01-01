@@ -102,7 +102,7 @@ export default function SessionsPage() {
         billingType: selectedBillingType,
         billingFrequency: selectedBillingFrequency,
         date: sessionDate,
-        time: timeNotApplicable ? 'N/A' : sessionTime,
+        time: selectedBillingFrequency === 'monthly' ? 'N/A' : (timeNotApplicable ? 'N/A' : sessionTime),
         status: 'captured',
         notes: sessionNotes || null,
         discountPercent: (selectedBillingType === 'private' || selectedBillingType === 'private_cash') ? discountAmount : 0
@@ -216,6 +216,27 @@ export default function SessionsPage() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-2">
+                  <Label>Billing Type</Label>
+                  <div className="flex h-10 items-center rounded-md border bg-muted px-3 text-sm" data-testid="display-billing-type">
+                    {selectedBillingType === 'medical_aid' ? 'Medical Aid' : selectedBillingType === 'private' ? 'Private' : selectedBillingType === 'private_cash' ? 'Private Cash' : 'Select patient first'}
+                  </div>
+                  <p className="text-xs text-muted-foreground">Auto-filled from patient record</p>
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="billingFrequency">Billing Frequency</Label>
+                  <Select value={selectedBillingFrequency} onValueChange={(v) => setSelectedBillingFrequency(v as "weekly" | "monthly")}>
+                    <SelectTrigger id="billingFrequency" data-testid="select-billing-frequency">
+                      <SelectValue placeholder="Select frequency" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="weekly">Weekly</SelectItem>
+                      <SelectItem value="monthly">Monthly</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
                   <Label htmlFor="date">Date</Label>
                   <Input 
                     id="date" 
@@ -251,43 +272,27 @@ export default function SessionsPage() {
                     type="time" 
                     value={sessionTime} 
                     onChange={(e) => setSessionTime(e.target.value)}
-                    disabled={timeNotApplicable}
+                    disabled={selectedBillingFrequency === 'monthly'}
+                    className={selectedBillingFrequency === 'monthly' ? 'bg-muted text-muted-foreground' : ''}
                     data-testid="input-time"
                   />
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      id="time-na"
-                      checked={timeNotApplicable}
-                      onChange={(e) => setTimeNotApplicable(e.target.checked)}
-                      className="h-4 w-4 rounded border-gray-300"
-                      data-testid="checkbox-time-na"
-                    />
-                    <Label htmlFor="time-na" className="text-sm font-normal text-muted-foreground cursor-pointer">
-                      N/A (monthly package)
-                    </Label>
-                  </div>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="grid gap-2">
-                  <Label>Billing Type</Label>
-                  <div className="flex h-10 items-center rounded-md border bg-muted px-3 text-sm" data-testid="display-billing-type">
-                    {selectedBillingType === 'medical_aid' ? 'Medical Aid' : selectedBillingType === 'private' ? 'Private' : selectedBillingType === 'private_cash' ? 'Private Cash' : 'Select patient first'}
-                  </div>
-                  <p className="text-xs text-muted-foreground">Auto-filled from patient record</p>
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="billingFrequency">Billing Frequency</Label>
-                  <Select value={selectedBillingFrequency} onValueChange={(v) => setSelectedBillingFrequency(v as "weekly" | "monthly")}>
-                    <SelectTrigger id="billingFrequency" data-testid="select-billing-frequency">
-                      <SelectValue placeholder="Select frequency" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="weekly">Weekly</SelectItem>
-                      <SelectItem value="monthly">Monthly</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  {selectedBillingFrequency === 'monthly' ? (
+                    <p className="text-xs text-muted-foreground">N/A for monthly billing</p>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        id="time-na"
+                        checked={timeNotApplicable}
+                        onChange={(e) => setTimeNotApplicable(e.target.checked)}
+                        className="h-4 w-4 rounded border-gray-300"
+                        data-testid="checkbox-time-na"
+                      />
+                      <Label htmlFor="time-na" className="text-sm font-normal text-muted-foreground cursor-pointer">
+                        N/A
+                      </Label>
+                    </div>
+                  )}
                 </div>
               </div>
               {(selectedBillingType === 'private' || selectedBillingType === 'private_cash') && (
