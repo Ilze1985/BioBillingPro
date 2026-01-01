@@ -254,17 +254,11 @@ export default function SessionsPage() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-2">
-                  <Label htmlFor="billingType">Billing Type</Label>
-                  <Select value={selectedBillingType} onValueChange={(v) => setSelectedBillingType(v as BillingType)}>
-                    <SelectTrigger id="billingType" data-testid="select-billing-type">
-                      <SelectValue placeholder="Select billing type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="medical_aid">Medical Aid</SelectItem>
-                      <SelectItem value="private">Private</SelectItem>
-                      <SelectItem value="private_cash">Private Cash</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Label>Billing Type</Label>
+                  <div className="flex h-10 items-center rounded-md border bg-muted px-3 text-sm" data-testid="display-billing-type">
+                    {selectedBillingType === 'medical_aid' ? 'Medical Aid' : selectedBillingType === 'private' ? 'Private' : selectedBillingType === 'private_cash' ? 'Private Cash' : 'Select patient first'}
+                  </div>
+                  <p className="text-xs text-muted-foreground">Auto-filled from patient record</p>
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="billingFrequency">Billing Frequency</Label>
