@@ -73,7 +73,14 @@ export default function PatientsPage() {
   const [formData, setFormData] = useState<PatientFormData>(emptyFormData);
 
   const handleAdd = () => {
-    if (!formData.firstName || !formData.surname) return;
+    if (!formData.firstName || !formData.surname) {
+      toast({
+        title: "Required Fields",
+        description: "First name and surname are required.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     createPatientMutation.mutate({
       practitionerId: null,
@@ -106,7 +113,14 @@ export default function PatientsPage() {
   };
 
   const handleEdit = () => {
-    if (!editPatient || !formData.firstName || !formData.surname) return;
+    if (!editPatient || !formData.firstName || !formData.surname) {
+      toast({
+        title: "Required Fields",
+        description: "First name and surname are required.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     updatePatientMutation.mutate({
       id: editPatient,
@@ -390,6 +404,11 @@ export default function PatientsPage() {
                   </span>
                   {patient.gender && (
                     <span className="text-xs text-muted-foreground capitalize">{patient.gender}</span>
+                  )}
+                  {patient.populationGroup && (
+                    <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs bg-teal-100 text-teal-800 capitalize">
+                      {patient.populationGroup.replace(/_/g, ' ')}
+                    </span>
                   )}
                   {patient.mainstream === 'yes' && (
                     <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs bg-amber-100 text-amber-800">Mainstream</span>
