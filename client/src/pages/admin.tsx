@@ -578,6 +578,22 @@ export default function AdminPage() {
                       const typeOrderDiff = getTypeOrder(a) - getTypeOrder(b);
                       if (typeOrderDiff !== 0) return typeOrderDiff;
                       
+                      // For weekly codes (medical aid + private weekly), use custom prefix ordering
+                      if (getTypeOrder(a) <= 1 && getTypeOrder(b) <= 1) {
+                        const weeklyPrefixOrder = ['EV', 'RE', 'PEN', 'EQ'];
+                        const getWeeklyOrder = (code: typeof a) => {
+                          // Medical aid codes come first (order 0)
+                          if (code.billingType === 'medical_aid') return -1;
+                          // Then check prefix order for private weekly
+                          for (let i = 0; i < weeklyPrefixOrder.length; i++) {
+                            if (code.code.startsWith(weeklyPrefixOrder[i])) return i;
+                          }
+                          return weeklyPrefixOrder.length;
+                        };
+                        const weeklyOrderDiff = getWeeklyOrder(a) - getWeeklyOrder(b);
+                        if (weeklyOrderDiff !== 0) return weeklyOrderDiff;
+                      }
+                      
                       // For monthly codes, use custom prefix ordering
                       if (getTypeOrder(a) === 2 && getTypeOrder(b) === 2) {
                         const prefixOrder = ['PVT8', 'PVT12', 'PEN8', 'PEN12', 'FA8', 'FA12', 'PFA8', 'PFA12'];
