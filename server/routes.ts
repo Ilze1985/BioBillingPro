@@ -7,7 +7,8 @@ import {
   insertBillingCodeSchema, 
   insertSessionSchema,
   insertFinancialPeriodSchema,
-  insertWeeklyBillingStatementSchema
+  insertWeeklyBillingStatementSchema,
+  insertMonthlyBillingStatementSchema
 } from "@shared/schema";
 import { z } from "zod";
 import multer from "multer";
@@ -733,6 +734,100 @@ export async function registerRoutes(
       res.status(204).send();
     } catch (error) {
       res.status(500).json({ message: "Failed to delete weekly billing statement" });
+    }
+  });
+
+  app.get("/api/weekly-billing-statements/archived", async (_req, res) => {
+    try {
+      const statements = await storage.getArchivedWeeklyBillingStatements();
+      res.json(statements);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch archived weekly billing statements" });
+    }
+  });
+
+  // Monthly Billing Statements
+  app.get("/api/monthly-billing-statements", async (_req, res) => {
+    try {
+      const statements = await storage.getActiveMonthlyBillingStatements();
+      res.json(statements);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch monthly billing statements" });
+    }
+  });
+
+  app.get("/api/monthly-billing-statements/all", async (_req, res) => {
+    try {
+      const statements = await storage.getAllMonthlyBillingStatements();
+      res.json(statements);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch all monthly billing statements" });
+    }
+  });
+
+  app.get("/api/monthly-billing-statements/archived", async (_req, res) => {
+    try {
+      const statements = await storage.getArchivedMonthlyBillingStatements();
+      res.json(statements);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch archived monthly billing statements" });
+    }
+  });
+
+  app.post("/api/monthly-billing-statements", async (req, res) => {
+    try {
+      const statementData = insertMonthlyBillingStatementSchema.parse(req.body);
+      const statement = await storage.createMonthlyBillingStatement(statementData);
+      res.status(201).json(statement);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid statement data", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to create monthly billing statement" });
+    }
+  });
+
+  app.patch("/api/monthly-billing-statements/:id/status", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { status, statementTypeNote } = req.body;
+      const userRole = req.headers['x-user-role'] as string;
+      
+      if (!['awaiting_review', 'ready_to_send', 'statement_sent', 'archived'].includes(status)) {
+        return res.status(400).json({ message: "Invalid status value" });
+      }
+      
+      // Only admin can mark as ready_to_send (invoice and send statement)
+      if (status === 'ready_to_send' && userRole !== 'admin') {
+        return res.status(403).json({ 
+          message: "Only administrators can mark statements as ready to send." 
+        });
+      }
+      
+      // Only receptionist or admin can mark as statement_sent
+      if (status === 'statement_sent' && userRole !== 'receptionist' && userRole !== 'admin') {
+        return res.status(403).json({ 
+          message: "Only receptionists or administrators can mark statements as sent." 
+        });
+      }
+
+      const statement = await storage.updateMonthlyBillingStatementStatus(id, status, statementTypeNote);
+      if (!statement) {
+        return res.status(404).json({ message: "Statement not found" });
+      }
+      res.json(statement);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to update statement status" });
+    }
+  });
+
+  app.delete("/api/monthly-billing-statements/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await storage.deleteMonthlyBillingStatement(id);
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete monthly billing statement" });
     }
   });
 
