@@ -1,15 +1,18 @@
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useSessions, usePatients, useUsers } from "@/lib/api";
-import { format, isSameDay, startOfWeek, endOfWeek, isWithinInterval, parseISO } from "date-fns";
+import { format, isSameDay, startOfWeek, endOfWeek, isWithinInterval, parseISO, startOfMonth, endOfMonth } from "date-fns";
 import { 
   BarChart, 
   Bar, 
   XAxis, 
   YAxis, 
-  CartesianGrid, 
   Tooltip, 
-  ResponsiveContainer 
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+  Legend
 } from "recharts";
 import { CalendarDays, DollarSign, Users, Activity } from "lucide-react";
 
@@ -28,23 +31,52 @@ export default function Dashboard() {
     isWithinInterval(parseISO(s.date), { start: weekStart, end: weekEnd })
   );
   
-  const totalDailyRevenue = todaysSessions.reduce((acc, s) => acc + s.price, 0);
-  const totalWeeklyRevenue = weeklySessions.reduce((acc, s) => acc + s.price, 0);
+  const totalDailyRevenue = todaysSessions.reduce((acc, s) => acc + s.finalPrice, 0);
+  const totalWeeklyRevenue = weeklySessions.reduce((acc, s) => acc + s.finalPrice, 0);
 
-  // Prepare chart data (Last 7 days)
-  const chartData = Array.from({ length: 7 }).map((_, i) => {
-    const d = new Date();
-    d.setDate(d.getDate() - (6 - i));
-    const dateStr = format(d, 'yyyy-MM-dd');
-    const dayRevenue = sessions
-      .filter(s => s.date === dateStr)
-      .reduce((acc, s) => acc + s.price, 0);
+  // Prepare chart data (Monthly view with weekly totals)
+  const monthStart = startOfMonth(today);
+  const monthEnd = endOfMonth(today);
+  const monthSessions = sessions.filter(s => 
+    isWithinInterval(parseISO(s.date), { start: monthStart, end: monthEnd })
+  );
+
+  const chartData = Array.from({ length: 5 }).map((_, i) => {
+    const weekNum = i + 1;
+    const weekStartDate = new Date(monthStart);
+    weekStartDate.setDate(monthStart.getDate() + i * 7);
+    const weekEndDate = new Date(weekStartDate);
+    weekEndDate.setDate(weekStartDate.getDate() + 6);
+    
+    const weekRevenue = monthSessions
+      .filter(s => {
+        const sessionDate = parseISO(s.date);
+        return isWithinInterval(sessionDate, { 
+          start: weekStartDate, 
+          end: weekEndDate > monthEnd ? monthEnd : weekEndDate 
+        });
+      })
+      .reduce((acc, s) => acc + s.finalPrice, 0);
     
     return {
-      name: format(d, 'EEE'),
-      total: dayRevenue
+      name: `Week ${weekNum}`,
+      total: weekRevenue
     };
   });
+
+  // Population group breakdown
+  const populationGroups = patients.reduce((acc, patient) => {
+    const group = patient.populationGroup || 'Not specified';
+    acc[group] = (acc[group] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+
+  const populationChartData = Object.entries(populationGroups).map(([name, value]) => ({
+    name: name.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+    value
+  }));
+
+  const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d', '#ffc658', '#ff7300'];
 
   if (loadingSessions) {
     return (
@@ -123,7 +155,7 @@ export default function Dashboard() {
         <Card className="col-span-4 shadow-sm">
           <CardHeader>
             <CardTitle>Revenue Overview</CardTitle>
-            <CardDescription>Daily revenue for the past 7 days</CardDescription>
+            <CardDescription>Weekly revenue for {format(today, 'MMMM yyyy')}</CardDescription>
           </CardHeader>
           <CardContent className="pl-2">
             <div className="h-[300px]">
@@ -146,6 +178,7 @@ export default function Dashboard() {
                   <Tooltip 
                     cursor={{fill: 'transparent'}}
                     contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                    formatter={(value: number) => [`R ${value.toLocaleString()}`, 'Revenue']}
                   />
                   <Bar 
                     dataKey="total" 
@@ -160,21 +193,66 @@ export default function Dashboard() {
 
         <Card className="col-span-3 shadow-sm">
           <CardHeader>
+            <CardTitle>Patient Population Groups</CardTitle>
+            <CardDescription>Distribution by condition type</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="h-[300px]">
+              {populationChartData.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={populationChartData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={40}
+                      outerRadius={80}
+                      paddingAngle={2}
+                      dataKey="value"
+                      label={({ name, value }) => `${value}`}
+                      labelLine={false}
+                    >
+                      {populationChartData.map((_, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip formatter={(value: number, name: string) => [value, name]} />
+                    <Legend 
+                      layout="vertical" 
+                      align="right" 
+                      verticalAlign="middle"
+                      wrapperStyle={{ fontSize: '11px' }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex items-center justify-center h-full text-muted-foreground">
+                  No population group data available
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-1">
+        <Card className="shadow-sm">
+          <CardHeader>
             <CardTitle>Recent Sessions</CardTitle>
             <CardDescription>Latest captured sessions</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
+            <div className="grid gap-4 md:grid-cols-5">
               {sessions.slice(0, 5).map((session) => (
-                <div key={session.id} className="flex items-center" data-testid={`session-recent-${session.id}`}>
-                  <div className="ml-4 space-y-1">
+                <div key={session.id} className="flex items-center p-3 border rounded-lg" data-testid={`session-recent-${session.id}`}>
+                  <div className="space-y-1">
                     <p className="text-sm font-medium leading-none">{session.patientName}</p>
                     <p className="text-xs text-muted-foreground">
-                      {session.billingCode} • {format(parseISO(session.date), 'MMM dd')}
+                      {session.billingCodes.join(', ')} • {format(parseISO(session.date), 'MMM dd')}
                     </p>
                   </div>
-                  <div className="ml-auto font-medium text-sm">
-                    +R{session.price}
+                  <div className="ml-auto font-medium text-sm text-green-600">
+                    +R{session.finalPrice.toLocaleString()}
                   </div>
                 </div>
               ))}
