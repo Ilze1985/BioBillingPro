@@ -76,6 +76,7 @@ export default function PatientsPage() {
     if (!formData.firstName || !formData.surname) return;
 
     createPatientMutation.mutate({
+      practitionerId: null,
       firstName: formData.firstName,
       surname: formData.surname,
       dateOfBirth: formData.dateOfBirth || null,

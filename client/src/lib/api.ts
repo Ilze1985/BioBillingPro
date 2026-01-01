@@ -7,17 +7,21 @@ export interface User {
   id: number;
   name: string;
   email: string;
-  role: 'admin' | 'practitioner';
+  role: 'admin' | 'practitioner' | 'receptionist';
 }
 
 export interface Patient {
   id: number;
+  practitionerId: number | null;
   firstName: string;
   surname: string;
   dateOfBirth: string | null;
   accountNumber: string | null;
   billingType: BillingType;
   medicalAidName: string | null;
+  gender: string | null;
+  populationGroup: string | null;
+  mainstream: string | null;
 }
 
 export interface BillingCode {
