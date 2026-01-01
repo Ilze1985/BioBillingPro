@@ -13,6 +13,7 @@ export const populationGroupEnum = pgEnum('population_group', [
   'conditioning_development_10_13', 'conditioning_adolescent_14_18', 
   'conditioning_adult', 'wellness', 'geriatric'
 ]);
+export const practiceNameEnum = pgEnum('practice_name', ['DPP', 'IDP']);
 
 export const financialPeriods = pgTable("financial_periods", {
   id: serial("id").primaryKey(),
@@ -39,6 +40,7 @@ export const patients = pgTable("patients", {
   firstName: text("first_name").notNull(),
   surname: text("surname").notNull(),
   dateOfBirth: text("date_of_birth"),
+  practiceName: practiceNameEnum("practice_name"),
   accountNumber: text("account_number"),
   billingType: billingTypeEnum("billing_type").notNull().default('medical_aid'),
   medicalAidName: text("medical_aid_name"),

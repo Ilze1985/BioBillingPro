@@ -16,6 +16,7 @@ export interface Patient {
   firstName: string;
   surname: string;
   dateOfBirth: string | null;
+  practiceName: string | null;
   accountNumber: string | null;
   billingType: BillingType;
   medicalAidName: string | null;

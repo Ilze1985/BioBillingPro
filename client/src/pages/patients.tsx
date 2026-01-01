@@ -39,6 +39,7 @@ type PatientFormData = {
   firstName: string;
   surname: string;
   dateOfBirth: string;
+  practiceName: string;
   accountNumber: string;
   billingType: BillingType;
   medicalAidName: string;
@@ -51,6 +52,7 @@ const emptyFormData: PatientFormData = {
   firstName: "",
   surname: "",
   dateOfBirth: "",
+  practiceName: "",
   accountNumber: "",
   billingType: "medical_aid",
   medicalAidName: "",
@@ -87,6 +89,7 @@ export default function PatientsPage() {
       firstName: formData.firstName,
       surname: formData.surname,
       dateOfBirth: formData.dateOfBirth || null,
+      practiceName: formData.practiceName || null,
       accountNumber: formData.accountNumber || null,
       billingType: formData.billingType,
       medicalAidName: formData.billingType === 'medical_aid' ? (formData.medicalAidName || null) : null,
@@ -128,6 +131,7 @@ export default function PatientsPage() {
         firstName: formData.firstName,
         surname: formData.surname,
         dateOfBirth: formData.dateOfBirth || null,
+        practiceName: formData.practiceName || null,
         accountNumber: formData.accountNumber || null,
         billingType: formData.billingType,
         medicalAidName: formData.billingType === 'medical_aid' ? (formData.medicalAidName || null) : null,
@@ -183,6 +187,7 @@ export default function PatientsPage() {
         firstName: patient.firstName,
         surname: patient.surname,
         dateOfBirth: patient.dateOfBirth || "",
+        practiceName: patient.practiceName || "",
         accountNumber: patient.accountNumber || "",
         billingType: patient.billingType,
         medicalAidName: patient.medicalAidName || "",
@@ -234,7 +239,7 @@ export default function PatientsPage() {
           />
         </div>
       </div>
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-3 gap-4">
         <div className="grid gap-2">
           <Label htmlFor="dateOfBirth">Date of Birth</Label>
           <Input 
@@ -244,6 +249,16 @@ export default function PatientsPage() {
             onChange={(e) => setFormData({ ...formData, dateOfBirth: e.target.value })} 
             data-testid="input-dob"
           />
+        </div>
+        <div className="grid gap-2">
+          <Label htmlFor="practiceName">Practice Name</Label>
+          <Select value={formData.practiceName} onValueChange={(v) => setFormData({ ...formData, practiceName: v })}>
+            <SelectTrigger data-testid="select-practice-name"><SelectValue placeholder="Select" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="DPP">DPP</SelectItem>
+              <SelectItem value="IDP">IDP</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
         <div className="grid gap-2">
           <Label htmlFor="accountNumber">Account Number</Label>
@@ -376,6 +391,7 @@ export default function PatientsPage() {
                 <th className="text-left py-3 px-4 font-semibold text-sm">Patient Name</th>
                 <th className="text-left py-3 px-4 font-semibold text-sm">Account Number</th>
                 <th className="text-left py-3 px-4 font-semibold text-sm">Date of Birth</th>
+                <th className="text-left py-3 px-4 font-semibold text-sm">Practice Name</th>
                 <th className="text-left py-3 px-4 font-semibold text-sm">Billing Type</th>
                 <th className="text-right py-3 px-4 font-semibold text-sm">Actions</th>
               </tr>
@@ -386,6 +402,7 @@ export default function PatientsPage() {
                   <td className="py-3 px-4 font-medium">{patient.firstName} {patient.surname}</td>
                   <td className="py-3 px-4 text-muted-foreground">{patient.accountNumber || 'N/A'}</td>
                   <td className="py-3 px-4 text-muted-foreground">{patient.dateOfBirth || 'N/A'}</td>
+                  <td className="py-3 px-4 text-muted-foreground">{patient.practiceName || 'N/A'}</td>
                   <td className="py-3 px-4">
                     <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${
                       patient.billingType === 'private' 
