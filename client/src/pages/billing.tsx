@@ -64,11 +64,45 @@ export default function BillingPage() {
       s.billingType === 'private' || s.billingType === 'private_cash'
     );
 
+    const monthMap = new Map<string, { 
+      month: string; 
+      label: string; 
+      sessions: typeof privateSessions; 
+      total: number; 
+      originalTotal: number;
+      count: number; 
+    }>();
+
+    privateSessions.forEach(session => {
+      const date = new Date(session.date);
+      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      const monthLabel = date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+
+      if (!monthMap.has(monthKey)) {
+        monthMap.set(monthKey, { 
+          month: monthKey, 
+          label: monthLabel, 
+          sessions: [], 
+          total: 0,
+          originalTotal: 0,
+          count: 0 
+        });
+      }
+      const monthData = monthMap.get(monthKey)!;
+      monthData.sessions.push(session);
+      monthData.total += session.finalPrice;
+      monthData.originalTotal += session.totalPrice;
+      monthData.count += 1;
+    });
+
+    const months = Array.from(monthMap.values()).sort((a, b) => a.month.localeCompare(b.month));
+
     const totalRevenue = privateSessions.reduce((sum, s) => sum + s.finalPrice, 0);
     const totalOriginal = privateSessions.reduce((sum, s) => sum + s.totalPrice, 0);
     const totalDiscount = totalOriginal - totalRevenue;
 
     return {
+      months,
       sessions: privateSessions,
       totalRevenue,
       totalOriginal,
@@ -265,14 +299,53 @@ export default function BillingPage() {
             </div>
 
             <Card className="shadow-sm">
+              <CardHeader className="pb-3">
+                <CardTitle>Revenue by Month</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="rounded-md border">
+                  <table className="w-full caption-bottom text-sm">
+                    <thead className="[&_tr]:border-b">
+                      <tr className="border-b transition-colors hover:bg-muted/50">
+                        <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Month</th>
+                        <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Sessions</th>
+                        <th className="h-12 px-4 text-right align-middle font-medium text-muted-foreground">Original</th>
+                        <th className="h-12 px-4 text-right align-middle font-medium text-muted-foreground">Discounts</th>
+                        <th className="h-12 px-4 text-right align-middle font-medium text-muted-foreground">Revenue</th>
+                      </tr>
+                    </thead>
+                    <tbody className="[&_tr:last-child]:border-0">
+                      {monthlyData.months.length === 0 ? (
+                        <tr>
+                          <td colSpan={5} className="p-4 text-center text-muted-foreground">No private billing sessions in this period</td>
+                        </tr>
+                      ) : (
+                        monthlyData.months.map((month) => (
+                          <tr key={month.month} className="border-b transition-colors hover:bg-muted/50" data-testid={`row-month-${month.month}`}>
+                            <td className="p-4 align-middle font-medium">{month.label}</td>
+                            <td className="p-4 align-middle text-muted-foreground">{month.count}</td>
+                            <td className="p-4 align-middle text-right text-muted-foreground">{formatCurrency(month.originalTotal)}</td>
+                            <td className="p-4 align-middle text-right text-amber-600">{formatCurrency(month.originalTotal - month.total)}</td>
+                            <td className="p-4 align-middle text-right font-medium">{formatCurrency(month.total)}</td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="shadow-sm">
               <CardHeader>
-                <CardTitle>Private Billing Sessions</CardTitle>
+                <CardTitle>Session Details</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="rounded-md border max-h-96 overflow-y-auto">
                   <table className="w-full caption-bottom text-sm">
                     <thead className="[&_tr]:border-b sticky top-0 bg-background">
                       <tr className="border-b transition-colors hover:bg-muted/50">
+                        <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Month</th>
                         <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Date</th>
                         <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Patient</th>
                         <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Type</th>
@@ -284,25 +357,34 @@ export default function BillingPage() {
                     <tbody className="[&_tr:last-child]:border-0">
                       {monthlyData.sessions.length === 0 ? (
                         <tr>
-                          <td colSpan={6} className="p-4 text-center text-muted-foreground">No private billing sessions in this period</td>
+                          <td colSpan={7} className="p-4 text-center text-muted-foreground">No private billing sessions in this period</td>
                         </tr>
                       ) : (
-                        monthlyData.sessions.map((session) => (
-                          <tr key={session.id} className="border-b transition-colors hover:bg-muted/50" data-testid={`row-monthly-session-${session.id}`}>
-                            <td className="p-4 align-middle">{new Date(session.date).toLocaleDateString()}</td>
-                            <td className="p-4 align-middle font-medium">{session.patientName}</td>
-                            <td className="p-4 align-middle">
-                              <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${
-                                session.billingType === 'private' ? 'bg-purple-100 text-purple-800' : 'bg-amber-100 text-amber-800'
-                              }`}>
-                                {session.billingType.replace('_', ' ')}
-                              </span>
-                            </td>
-                            <td className="p-4 align-middle text-muted-foreground">{session.billingCodes.join(', ')}</td>
-                            <td className="p-4 align-middle text-right text-muted-foreground">{formatCurrency(session.totalPrice)}</td>
-                            <td className="p-4 align-middle text-right font-medium">{formatCurrency(session.finalPrice)}</td>
-                          </tr>
-                        ))
+                        monthlyData.sessions.map((session) => {
+                          const sessionDate = new Date(session.date);
+                          const monthLabel = sessionDate.toLocaleDateString('en-US', { month: 'short' });
+                          return (
+                            <tr key={session.id} className="border-b transition-colors hover:bg-muted/50" data-testid={`row-monthly-session-${session.id}`}>
+                              <td className="p-4 align-middle">
+                                <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold bg-purple-100 text-purple-800">
+                                  {monthLabel}
+                                </span>
+                              </td>
+                              <td className="p-4 align-middle">{sessionDate.toLocaleDateString()}</td>
+                              <td className="p-4 align-middle font-medium">{session.patientName}</td>
+                              <td className="p-4 align-middle">
+                                <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${
+                                  session.billingType === 'private' ? 'bg-purple-100 text-purple-800' : 'bg-amber-100 text-amber-800'
+                                }`}>
+                                  {session.billingType.replace('_', ' ')}
+                                </span>
+                              </td>
+                              <td className="p-4 align-middle text-muted-foreground">{session.billingCodes.join(', ')}</td>
+                              <td className="p-4 align-middle text-right text-muted-foreground">{formatCurrency(session.totalPrice)}</td>
+                              <td className="p-4 align-middle text-right font-medium">{formatCurrency(session.finalPrice)}</td>
+                            </tr>
+                          );
+                        })
                       )}
                     </tbody>
                   </table>
