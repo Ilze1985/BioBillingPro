@@ -65,6 +65,13 @@ export default function SessionsPage() {
     }
   }, [selectedPatientId, patients]);
 
+  // Force billing frequency to weekly for medical aid
+  useEffect(() => {
+    if (selectedBillingType === 'medical_aid') {
+      setSelectedBillingFrequency('weekly');
+    }
+  }, [selectedBillingType]);
+
   // Reset selected codes and discount when billing type or frequency changes
   useEffect(() => {
     setSelectedCodeIds([]);
@@ -224,15 +231,21 @@ export default function SessionsPage() {
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="billingFrequency">Billing Frequency</Label>
-                  <Select value={selectedBillingFrequency} onValueChange={(v) => setSelectedBillingFrequency(v as "weekly" | "monthly")}>
-                    <SelectTrigger id="billingFrequency" data-testid="select-billing-frequency">
-                      <SelectValue placeholder="Select frequency" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="weekly">Weekly</SelectItem>
-                      <SelectItem value="monthly">Monthly</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  {selectedBillingType === 'medical_aid' ? (
+                    <div className="flex h-10 items-center rounded-md border bg-muted px-3 text-sm" data-testid="display-billing-frequency">
+                      Weekly
+                    </div>
+                  ) : (
+                    <Select value={selectedBillingFrequency} onValueChange={(v) => setSelectedBillingFrequency(v as "weekly" | "monthly")}>
+                      <SelectTrigger id="billingFrequency" data-testid="select-billing-frequency">
+                        <SelectValue placeholder="Select frequency" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="weekly">Weekly</SelectItem>
+                        <SelectItem value="monthly">Monthly</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  )}
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
@@ -295,26 +308,6 @@ export default function SessionsPage() {
                   )}
                 </div>
               </div>
-              {(selectedBillingType === 'private' || selectedBillingType === 'private_cash') && (
-                <div className="grid gap-2">
-                  <Label htmlFor="discount">Additional Discount (R)</Label>
-                  <Input
-                    id="discount"
-                    type="number"
-                    min="0"
-                    value={discountAmount}
-                    onChange={(e) => {
-                      const val = e.target.value === '' ? 0 : Math.max(0, parseInt(e.target.value) || 0);
-                      setDiscountAmount(val);
-                    }}
-                    placeholder="0"
-                    data-testid="input-discount"
-                  />
-                  {selectedBillingType === 'private_cash' && (
-                    <p className="text-xs text-muted-foreground">Private cash includes automatic 10% discount (rounded to nearest R10)</p>
-                  )}
-                </div>
-              )}
               <div className="grid gap-2">
                 <Label>Tariff Codes</Label>
                 <Input
@@ -412,6 +405,26 @@ export default function SessionsPage() {
                   );
                 })()}
               </div>
+              {(selectedBillingType === 'private' || selectedBillingType === 'private_cash') && (
+                <div className="grid gap-2">
+                  <Label htmlFor="discount">Additional Discount (R)</Label>
+                  <Input
+                    id="discount"
+                    type="number"
+                    min="0"
+                    value={discountAmount}
+                    onChange={(e) => {
+                      const val = e.target.value === '' ? 0 : Math.max(0, parseInt(e.target.value) || 0);
+                      setDiscountAmount(val);
+                    }}
+                    placeholder="0"
+                    data-testid="input-discount"
+                  />
+                  {selectedBillingType === 'private_cash' && (
+                    <p className="text-xs text-muted-foreground">Private cash includes automatic 10% discount (rounded to nearest R10)</p>
+                  )}
+                </div>
+              )}
               <div className="grid gap-2">
                 <Label htmlFor="notes">Billing Notes</Label>
                 <Textarea 
