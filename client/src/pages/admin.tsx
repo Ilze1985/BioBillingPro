@@ -568,7 +568,17 @@ export default function AdminPage() {
                     </tr>
                   </thead>
                   <tbody className="[&_tr:last-child]:border-0">
-                    {billingCodes.map((code) => (
+                    {[...billingCodes].sort((a, b) => {
+                      // Sort order: medical_aid first, then private weekly, then private monthly
+                      const getOrder = (code: typeof a) => {
+                        if (code.billingType === 'medical_aid') return 0;
+                        if ((code.billingType === 'private' || code.billingType === 'private_cash') && code.billingFrequency === 'weekly') return 1;
+                        return 2; // monthly
+                      };
+                      const orderDiff = getOrder(a) - getOrder(b);
+                      if (orderDiff !== 0) return orderDiff;
+                      return a.code.localeCompare(b.code);
+                    }).map((code) => (
                       <tr key={code.id} className="border-b transition-colors hover:bg-muted/50" data-testid={`row-code-${code.id}`}>
                         <td className="p-4 align-middle font-bold">{code.code}</td>
                         <td className="p-4 align-middle">{code.description}</td>
