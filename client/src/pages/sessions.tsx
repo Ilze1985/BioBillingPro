@@ -48,13 +48,16 @@ export default function SessionsPage() {
   // Fetch billing codes based on selected type
   // Private and private_cash share the same tariff codes
   const billingTypeForCodes = selectedBillingType === 'private_cash' ? 'private' : selectedBillingType;
-  const { data: billingCodes = [] } = useBillingCodesByType(billingTypeForCodes);
+  const { data: allBillingCodes = [] } = useBillingCodesByType(billingTypeForCodes);
+  
+  // Filter codes by selected billing frequency
+  const billingCodes = allBillingCodes.filter(code => code.billingFrequency === selectedBillingFrequency);
 
-  // Reset selected codes and discount when billing type changes
+  // Reset selected codes and discount when billing type or frequency changes
   useEffect(() => {
     setSelectedCodeIds([]);
     setDiscountAmount(0);
-  }, [selectedBillingType]);
+  }, [selectedBillingType, selectedBillingFrequency]);
 
   const handleSave = async () => {
     if (!selectedPractitionerId || !selectedPatientId || selectedCodeIds.length === 0) return;
