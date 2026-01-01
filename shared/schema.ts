@@ -3,7 +3,7 @@ import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-export const userRoleEnum = pgEnum('user_role', ['admin', 'practitioner']);
+export const userRoleEnum = pgEnum('user_role', ['admin', 'practitioner', 'receptionist']);
 export const sessionStatusEnum = pgEnum('session_status', ['captured', 'invoiced', 'paid']);
 export const billingTypeEnum = pgEnum('billing_type', ['medical_aid', 'private', 'private_cash']);
 export const billingFrequencyEnum = pgEnum('billing_frequency', ['weekly', 'monthly']);
@@ -35,6 +35,7 @@ export const usersRelations = relations(users, ({ many }) => ({
 
 export const patients = pgTable("patients", {
   id: serial("id").primaryKey(),
+  practitionerId: integer("practitioner_id").references(() => users.id),
   firstName: text("first_name").notNull(),
   surname: text("surname").notNull(),
   dateOfBirth: text("date_of_birth"),
