@@ -56,6 +56,10 @@ export default function SessionsPage() {
   const [archivedPeriodFilter, setArchivedPeriodFilter] = useState<string>("all");
   const [archivedPractitionerFilter, setArchivedPractitionerFilter] = useState<string>("all");
   const [archivedBillingTypeFilter, setArchivedBillingTypeFilter] = useState<string>("all");
+  const [weeklyPeriodFilter, setWeeklyPeriodFilter] = useState<string>("all");
+  const [weeklyPractitionerFilter, setWeeklyPractitionerFilter] = useState<string>("all");
+  const [monthlyPeriodFilter, setMonthlyPeriodFilter] = useState<string>("all");
+  const [monthlyPractitionerFilter, setMonthlyPractitionerFilter] = useState<string>("all");
   
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedPeriodFilter, setSelectedPeriodFilter] = useState<string>("all");
@@ -344,7 +348,7 @@ export default function SessionsPage() {
   const isAdmin = currentUserRole === 'admin';
   const isReceptionist = currentUserRole === 'receptionist';
 
-  // Get enriched statement data
+  // Get enriched statement data with filters
   const enrichedStatements = weeklyStatements.map(statement => {
     const patient = patients.find(p => p.id === statement.patientId);
     const practitioner = users.find(u => u.id === statement.practitionerId);
@@ -355,9 +359,15 @@ export default function SessionsPage() {
       practitionerName: practitioner?.name || 'Unknown',
       periodName: period?.name || 'No Period'
     };
+  }).filter(statement => {
+    const matchesPeriod = weeklyPeriodFilter === "all" || 
+      statement.financialPeriodId?.toString() === weeklyPeriodFilter;
+    const matchesPractitioner = weeklyPractitionerFilter === "all" || 
+      statement.practitionerId?.toString() === weeklyPractitionerFilter;
+    return matchesPeriod && matchesPractitioner;
   });
 
-  // Get enriched monthly statement data
+  // Get enriched monthly statement data with filters
   const enrichedMonthlyStatements = monthlyStatements.map(statement => {
     const patient = patients.find(p => p.id === statement.patientId);
     const practitioner = users.find(u => u.id === statement.practitionerId);
@@ -370,6 +380,12 @@ export default function SessionsPage() {
       periodName: period?.name || 'No Period',
       sessionDate: session?.date || 'Unknown'
     };
+  }).filter(statement => {
+    const matchesPeriod = monthlyPeriodFilter === "all" || 
+      statement.financialPeriodId?.toString() === monthlyPeriodFilter;
+    const matchesPractitioner = monthlyPractitionerFilter === "all" || 
+      statement.practitionerId?.toString() === monthlyPractitionerFilter;
+    return matchesPeriod && matchesPractitioner;
   });
 
   // Enriched archived statements for admin view
@@ -1027,9 +1043,31 @@ export default function SessionsPage() {
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <CardTitle>Weekly Billing Statements</CardTitle>
-            <p className="text-sm text-muted-foreground">
-              Track patient statements from invoice to archive
-            </p>
+            <div className="flex items-center gap-2">
+              <Select value={weeklyPeriodFilter} onValueChange={setWeeklyPeriodFilter}>
+                <SelectTrigger className="h-9 w-[150px]" data-testid="select-weekly-period">
+                  <Filter className="h-4 w-4 mr-2" />
+                  <SelectValue placeholder="Period" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Periods</SelectItem>
+                  {financialPeriods.map(p => (
+                    <SelectItem key={p.id} value={p.id.toString()}>{p.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={weeklyPractitionerFilter} onValueChange={setWeeklyPractitionerFilter}>
+                <SelectTrigger className="h-9 w-[150px]" data-testid="select-weekly-practitioner">
+                  <SelectValue placeholder="Practitioner" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Practitioners</SelectItem>
+                  {users.map(u => (
+                    <SelectItem key={u.id} value={u.id.toString()}>{u.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
@@ -1175,9 +1213,31 @@ export default function SessionsPage() {
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <CardTitle>Monthly Billing Statements</CardTitle>
-            <p className="text-sm text-muted-foreground">
-              Track monthly billing from capture to archive
-            </p>
+            <div className="flex items-center gap-2">
+              <Select value={monthlyPeriodFilter} onValueChange={setMonthlyPeriodFilter}>
+                <SelectTrigger className="h-9 w-[150px]" data-testid="select-monthly-period">
+                  <Filter className="h-4 w-4 mr-2" />
+                  <SelectValue placeholder="Period" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Periods</SelectItem>
+                  {financialPeriods.map(p => (
+                    <SelectItem key={p.id} value={p.id.toString()}>{p.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={monthlyPractitionerFilter} onValueChange={setMonthlyPractitionerFilter}>
+                <SelectTrigger className="h-9 w-[150px]" data-testid="select-monthly-practitioner">
+                  <SelectValue placeholder="Practitioner" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Practitioners</SelectItem>
+                  {users.map(u => (
+                    <SelectItem key={u.id} value={u.id.toString()}>{u.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
