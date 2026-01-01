@@ -170,13 +170,16 @@ export default function AdminPage() {
   const handleUpdateCode = async () => {
     if (!editCodeDialog) return;
     try {
+      const billingType = formData.billingType as BillingType;
+      const billingFrequency = billingType === 'medical_aid' ? 'weekly' : (formData.billingFrequency || 'weekly');
       await updateBillingCodeMutation.mutateAsync({
         id: editCodeDialog.id,
         data: { 
           code: formData.code, 
           description: formData.description, 
           price: parseFloat(formData.price),
-          billingType: formData.billingType as BillingType
+          billingType,
+          billingFrequency: billingFrequency as 'weekly' | 'monthly'
         }
       });
       toast({ title: "Updated", description: "Billing code has been updated." });
@@ -188,11 +191,14 @@ export default function AdminPage() {
 
   const handleCreateCode = async () => {
     try {
+      const billingType = formData.billingType as BillingType;
+      const billingFrequency = billingType === 'medical_aid' ? 'weekly' : (formData.billingFrequency || 'weekly');
       await createBillingCodeMutation.mutateAsync({
         code: formData.code,
         description: formData.description,
         price: parseFloat(formData.price),
-        billingType: formData.billingType as BillingType
+        billingType,
+        billingFrequency: billingFrequency as 'weekly' | 'monthly'
       });
       toast({ title: "Created", description: "Billing code has been created." });
       setNewCodeDialog(false);
@@ -533,7 +539,7 @@ export default function AdminPage() {
                   <Upload className="h-4 w-4" />
                   {importBillingCodesMutation.isPending ? 'Importing...' : 'Import from Excel'}
                 </Button>
-                <Button className="gap-2" onClick={() => { setFormData({ billingType: 'medical_aid' }); setNewCodeDialog(true); }} data-testid="button-add-code">
+                <Button className="gap-2" onClick={() => { setFormData({ billingType: 'medical_aid', billingFrequency: 'weekly' }); setNewCodeDialog(true); }} data-testid="button-add-code">
                   <Plus className="h-4 w-4" />
                   Add Code
                 </Button>
@@ -556,6 +562,7 @@ export default function AdminPage() {
                       <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Code</th>
                       <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Description</th>
                       <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Type</th>
+                      <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Frequency</th>
                       <th className="h-12 px-4 text-right align-middle font-medium text-muted-foreground">Price</th>
                       <th className="h-12 px-4 text-right align-middle font-medium text-muted-foreground">Actions</th>
                     </tr>
@@ -576,6 +583,13 @@ export default function AdminPage() {
                             {code.billingType === 'private' ? 'Private' : code.billingType === 'private_cash' ? 'Private Cash' : 'Medical Aid'}
                           </span>
                         </td>
+                        <td className="p-4 align-middle">
+                          <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                            code.billingFrequency === 'monthly' ? 'bg-orange-100 text-orange-800' : 'bg-cyan-100 text-cyan-800'
+                          }`}>
+                            {code.billingFrequency === 'monthly' ? 'Monthly' : 'Weekly'}
+                          </span>
+                        </td>
                         <td className="p-4 align-middle text-right font-medium">R {code.price}</td>
                         <td className="p-4 align-middle text-right">
                           <Button 
@@ -587,7 +601,8 @@ export default function AdminPage() {
                                 code: code.code, 
                                 description: code.description, 
                                 price: code.price.toString(),
-                                billingType: code.billingType
+                                billingType: code.billingType,
+                                billingFrequency: code.billingFrequency
                               }); 
                               setEditCodeDialog(code); 
                             }}
@@ -900,7 +915,7 @@ export default function AdminPage() {
             </div>
             <div className="grid gap-2">
               <Label htmlFor="billingType">Billing Type</Label>
-              <Select value={formData.billingType || 'medical_aid'} onValueChange={(v) => setFormData({ ...formData, billingType: v })}>
+              <Select value={formData.billingType || 'medical_aid'} onValueChange={(v) => setFormData({ ...formData, billingType: v, billingFrequency: v === 'medical_aid' ? 'weekly' : formData.billingFrequency })}>
                 <SelectTrigger data-testid="select-edit-code-type"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="medical_aid">Medical Aid</SelectItem>
@@ -909,6 +924,18 @@ export default function AdminPage() {
                 </SelectContent>
               </Select>
             </div>
+            {(formData.billingType === 'private' || formData.billingType === 'private_cash') && (
+              <div className="grid gap-2">
+                <Label htmlFor="billingFrequency">Billing Frequency</Label>
+                <Select value={formData.billingFrequency || 'weekly'} onValueChange={(v) => setFormData({ ...formData, billingFrequency: v })}>
+                  <SelectTrigger data-testid="select-edit-code-frequency"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="weekly">Weekly</SelectItem>
+                    <SelectItem value="monthly">Monthly</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </div>
           <DialogFooter>
             <DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose>
@@ -938,7 +965,7 @@ export default function AdminPage() {
             </div>
             <div className="grid gap-2">
               <Label htmlFor="billingType">Billing Type</Label>
-              <Select value={formData.billingType || 'medical_aid'} onValueChange={(v) => setFormData({ ...formData, billingType: v })}>
+              <Select value={formData.billingType || 'medical_aid'} onValueChange={(v) => setFormData({ ...formData, billingType: v, billingFrequency: v === 'medical_aid' ? 'weekly' : formData.billingFrequency })}>
                 <SelectTrigger data-testid="select-new-code-type"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="medical_aid">Medical Aid</SelectItem>
@@ -947,6 +974,18 @@ export default function AdminPage() {
                 </SelectContent>
               </Select>
             </div>
+            {(formData.billingType === 'private' || formData.billingType === 'private_cash') && (
+              <div className="grid gap-2">
+                <Label htmlFor="billingFrequency">Billing Frequency</Label>
+                <Select value={formData.billingFrequency || 'weekly'} onValueChange={(v) => setFormData({ ...formData, billingFrequency: v })}>
+                  <SelectTrigger data-testid="select-new-code-frequency"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="weekly">Weekly</SelectItem>
+                    <SelectItem value="monthly">Monthly</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </div>
           <DialogFooter>
             <DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose>
