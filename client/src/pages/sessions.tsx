@@ -186,6 +186,21 @@ export default function SessionsPage() {
                     onChange={(e) => setSessionDate(e.target.value)}
                     data-testid="input-date"
                   />
+                  {(() => {
+                    const matchingPeriod = financialPeriods.find(p => 
+                      sessionDate >= p.startDate && sessionDate <= p.endDate
+                    );
+                    return (
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground">Financial Period:</span>
+                        {matchingPeriod ? (
+                          <span className="text-xs font-medium text-primary" data-testid="text-financial-period">{matchingPeriod.name}</span>
+                        ) : (
+                          <span className="text-xs text-amber-600" data-testid="text-financial-period-none">No matching period</span>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="time">Time</Label>
