@@ -83,6 +83,19 @@ export interface WeeklyBillingStatement {
   updatedAt: Date | null;
 }
 
+export interface MonthlyBillingStatement {
+  id: number;
+  patientId: number;
+  financialPeriodId: number | null;
+  practitionerId: number | null;
+  sessionId: number | null;
+  status: StatementStatus;
+  statementTypeNote: string | null;
+  totalAmount: number | null;
+  createdAt: Date | null;
+  updatedAt: Date | null;
+}
+
 // API Functions
 async function fetchUsers(): Promise<User[]> {
   const res = await fetch('/api/users');
@@ -613,6 +626,97 @@ export function useUpdateWeeklyBillingStatementStatus() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['weeklyBillingStatements'] });
       queryClient.invalidateQueries({ queryKey: ['allWeeklyBillingStatements'] });
+    },
+  });
+}
+
+// Monthly Billing Statements API
+async function fetchMonthlyBillingStatements(): Promise<MonthlyBillingStatement[]> {
+  const res = await fetch('/api/monthly-billing-statements');
+  if (!res.ok) throw new Error('Failed to fetch monthly billing statements');
+  return res.json();
+}
+
+async function fetchAllMonthlyBillingStatements(): Promise<MonthlyBillingStatement[]> {
+  const res = await fetch('/api/monthly-billing-statements/all');
+  if (!res.ok) throw new Error('Failed to fetch all monthly billing statements');
+  return res.json();
+}
+
+async function fetchArchivedMonthlyBillingStatements(): Promise<MonthlyBillingStatement[]> {
+  const res = await fetch('/api/monthly-billing-statements/archived');
+  if (!res.ok) throw new Error('Failed to fetch archived monthly billing statements');
+  return res.json();
+}
+
+async function fetchArchivedWeeklyBillingStatements(): Promise<WeeklyBillingStatement[]> {
+  const res = await fetch('/api/weekly-billing-statements/archived');
+  if (!res.ok) throw new Error('Failed to fetch archived weekly billing statements');
+  return res.json();
+}
+
+async function updateMonthlyBillingStatementStatus(
+  id: number, 
+  status: StatementStatus, 
+  userRole: string,
+  statementTypeNote?: string
+): Promise<MonthlyBillingStatement> {
+  const res = await fetch(`/api/monthly-billing-statements/${id}/status`, {
+    method: 'PATCH',
+    headers: { 
+      'Content-Type': 'application/json',
+      'X-User-Role': userRole
+    },
+    body: JSON.stringify({ status, statementTypeNote })
+  });
+  if (!res.ok) {
+    const error = await res.json();
+    throw new Error(error.message || 'Failed to update statement status');
+  }
+  return res.json();
+}
+
+export function useMonthlyBillingStatements() {
+  return useQuery({
+    queryKey: ['monthlyBillingStatements'],
+    queryFn: fetchMonthlyBillingStatements,
+  });
+}
+
+export function useAllMonthlyBillingStatements() {
+  return useQuery({
+    queryKey: ['allMonthlyBillingStatements'],
+    queryFn: fetchAllMonthlyBillingStatements,
+  });
+}
+
+export function useArchivedMonthlyBillingStatements() {
+  return useQuery({
+    queryKey: ['archivedMonthlyBillingStatements'],
+    queryFn: fetchArchivedMonthlyBillingStatements,
+  });
+}
+
+export function useArchivedWeeklyBillingStatements() {
+  return useQuery({
+    queryKey: ['archivedWeeklyBillingStatements'],
+    queryFn: fetchArchivedWeeklyBillingStatements,
+  });
+}
+
+export function useUpdateMonthlyBillingStatementStatus() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, status, userRole, statementTypeNote }: { 
+      id: number; 
+      status: StatementStatus; 
+      userRole: string;
+      statementTypeNote?: string;
+    }) => updateMonthlyBillingStatementStatus(id, status, userRole, statementTypeNote),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['monthlyBillingStatements'] });
+      queryClient.invalidateQueries({ queryKey: ['allMonthlyBillingStatements'] });
+      queryClient.invalidateQueries({ queryKey: ['archivedMonthlyBillingStatements'] });
     },
   });
 }

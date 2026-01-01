@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
-import { useCreateSession, useSessions, usePatients, useBillingCodesByType, useUsers, useFinancialPeriods, useUpdateSessionStatus, useWeeklyBillingStatements, useCreateWeeklyBillingStatement, useUpdateWeeklyBillingStatementStatus, BillingType, StatementStatus } from "@/lib/api";
+import { useCreateSession, useSessions, usePatients, useBillingCodesByType, useUsers, useFinancialPeriods, useUpdateSessionStatus, useWeeklyBillingStatements, useCreateWeeklyBillingStatement, useUpdateWeeklyBillingStatementStatus, useMonthlyBillingStatements, useUpdateMonthlyBillingStatementStatus, useArchivedWeeklyBillingStatements, useArchivedMonthlyBillingStatements, BillingType, StatementStatus } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -35,16 +35,27 @@ export default function SessionsPage() {
   const { data: users = [] } = useUsers();
   const { data: financialPeriods = [] } = useFinancialPeriods();
   const { data: weeklyStatements = [] } = useWeeklyBillingStatements();
+  const { data: monthlyStatements = [] } = useMonthlyBillingStatements();
+  const { data: archivedWeeklyStatements = [] } = useArchivedWeeklyBillingStatements();
+  const { data: archivedMonthlyStatements = [] } = useArchivedMonthlyBillingStatements();
   const createSessionMutation = useCreateSession();
   const updateStatusMutation = useUpdateSessionStatus();
   const createStatementMutation = useCreateWeeklyBillingStatement();
   const updateStatementStatusMutation = useUpdateWeeklyBillingStatementStatus();
+  const updateMonthlyStatementStatusMutation = useUpdateMonthlyBillingStatementStatus();
   const { toast } = useToast();
   
   const [activeTab, setActiveTab] = useState("sessions");
   const [statementNote, setStatementNote] = useState("");
   const [selectedStatementId, setSelectedStatementId] = useState<number | null>(null);
   const [isReadyToSendDialogOpen, setIsReadyToSendDialogOpen] = useState(false);
+  const [isMonthlyStatement, setIsMonthlyStatement] = useState(false);
+  const [monthlyStatementNote, setMonthlyStatementNote] = useState("");
+  const [selectedMonthlyStatementId, setSelectedMonthlyStatementId] = useState<number | null>(null);
+  const [isMonthlyReadyToSendDialogOpen, setIsMonthlyReadyToSendDialogOpen] = useState(false);
+  const [archivedPeriodFilter, setArchivedPeriodFilter] = useState<string>("all");
+  const [archivedPractitionerFilter, setArchivedPractitionerFilter] = useState<string>("all");
+  const [archivedBillingTypeFilter, setArchivedBillingTypeFilter] = useState<string>("all");
   
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedPeriodFilter, setSelectedPeriodFilter] = useState<string>("all");
@@ -260,6 +271,74 @@ export default function SessionsPage() {
     }
   };
 
+  const handleMonthlyReadyToSend = async () => {
+    if (!selectedMonthlyStatementId || !monthlyStatementNote.trim()) return;
+    try {
+      await updateMonthlyStatementStatusMutation.mutateAsync({
+        id: selectedMonthlyStatementId,
+        status: 'ready_to_send' as StatementStatus,
+        userRole: currentUserRole,
+        statementTypeNote: monthlyStatementNote.trim()
+      });
+      toast({
+        title: "Invoice & Statement Ready",
+        description: "Monthly statement has been marked as ready to send.",
+      });
+      setIsMonthlyReadyToSendDialogOpen(false);
+      setMonthlyStatementNote("");
+      setSelectedMonthlyStatementId(null);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : "Failed to update statement status.";
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleMarkMonthlyStatementSent = async (statementId: number) => {
+    try {
+      await updateMonthlyStatementStatusMutation.mutateAsync({
+        id: statementId,
+        status: 'statement_sent' as StatementStatus,
+        userRole: currentUserRole
+      });
+      toast({
+        title: "Statement Sent",
+        description: "Monthly statement has been marked as sent and archived.",
+      });
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : "Failed to update statement status.";
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleArchiveMonthlyStatement = async (statementId: number) => {
+    try {
+      await updateMonthlyStatementStatusMutation.mutateAsync({
+        id: statementId,
+        status: 'archived' as StatementStatus,
+        userRole: currentUserRole
+      });
+      toast({
+        title: "Statement Archived",
+        description: "Monthly statement has been archived.",
+      });
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : "Failed to archive statement.";
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    }
+  };
+
   const canMarkAsInvoiced = currentUserRole === 'receptionist' || currentUserRole === 'admin';
   const canCaptureSession = currentUserRole === 'practitioner' || currentUserRole === 'admin';
   const isAdmin = currentUserRole === 'admin';
@@ -276,6 +355,64 @@ export default function SessionsPage() {
       practitionerName: practitioner?.name || 'Unknown',
       periodName: period?.name || 'No Period'
     };
+  });
+
+  // Get enriched monthly statement data
+  const enrichedMonthlyStatements = monthlyStatements.map(statement => {
+    const patient = patients.find(p => p.id === statement.patientId);
+    const practitioner = users.find(u => u.id === statement.practitionerId);
+    const period = financialPeriods.find(p => p.id === statement.financialPeriodId);
+    const session = sessions.find(s => s.id === statement.sessionId);
+    return {
+      ...statement,
+      patientName: patient ? `${patient.firstName} ${patient.surname}` : 'Unknown',
+      practitionerName: practitioner?.name || 'Unknown',
+      periodName: period?.name || 'No Period',
+      sessionDate: session?.date || 'Unknown'
+    };
+  });
+
+  // Enriched archived statements for admin view
+  const enrichedArchivedWeeklyStatements = archivedWeeklyStatements.map(statement => {
+    const patient = patients.find(p => p.id === statement.patientId);
+    const practitioner = users.find(u => u.id === statement.practitionerId);
+    const period = financialPeriods.find(p => p.id === statement.financialPeriodId);
+    return {
+      ...statement,
+      patientName: patient ? `${patient.firstName} ${patient.surname}` : 'Unknown',
+      practitionerName: practitioner?.name || 'Unknown',
+      periodName: period?.name || 'No Period',
+      billingType: 'weekly' as const
+    };
+  });
+
+  const enrichedArchivedMonthlyStatements = archivedMonthlyStatements.map(statement => {
+    const patient = patients.find(p => p.id === statement.patientId);
+    const practitioner = users.find(u => u.id === statement.practitionerId);
+    const period = financialPeriods.find(p => p.id === statement.financialPeriodId);
+    const session = sessions.find(s => s.id === statement.sessionId);
+    return {
+      ...statement,
+      patientName: patient ? `${patient.firstName} ${patient.surname}` : 'Unknown',
+      practitionerName: practitioner?.name || 'Unknown',
+      periodName: period?.name || 'No Period',
+      sessionDate: session?.date || 'Unknown',
+      billingType: 'monthly' as const
+    };
+  });
+
+  // Combine and filter archived statements
+  const allArchivedStatements = [
+    ...enrichedArchivedWeeklyStatements,
+    ...enrichedArchivedMonthlyStatements
+  ].filter(statement => {
+    const matchesPeriod = archivedPeriodFilter === "all" || 
+      statement.financialPeriodId?.toString() === archivedPeriodFilter;
+    const matchesPractitioner = archivedPractitionerFilter === "all" || 
+      statement.practitionerId?.toString() === archivedPractitionerFilter;
+    const matchesBillingType = archivedBillingTypeFilter === "all" || 
+      statement.billingType === archivedBillingTypeFilter;
+    return matchesPeriod && matchesPractitioner && matchesBillingType;
   });
 
   const filteredSessions = sessions.filter(session => {
@@ -612,6 +749,10 @@ export default function SessionsPage() {
           <TabsList>
             <TabsTrigger value="sessions" data-testid="tab-sessions">All Sessions</TabsTrigger>
             <TabsTrigger value="weekly-statements" data-testid="tab-weekly-statements">Weekly Statements</TabsTrigger>
+            <TabsTrigger value="monthly-statements" data-testid="tab-monthly-statements">Monthly Statements</TabsTrigger>
+            {isAdmin && (
+              <TabsTrigger value="archived" data-testid="tab-archived">Archived</TabsTrigger>
+            )}
           </TabsList>
           <TabsContent value="sessions" className="mt-4">
             <SessionHistoryCard />
@@ -619,6 +760,14 @@ export default function SessionsPage() {
           <TabsContent value="weekly-statements" className="mt-4">
             <WeeklyStatementsCard />
           </TabsContent>
+          <TabsContent value="monthly-statements" className="mt-4">
+            <MonthlyStatementsCard />
+          </TabsContent>
+          {isAdmin && (
+            <TabsContent value="archived" className="mt-4">
+              <ArchivedStatementsCard />
+            </TabsContent>
+          )}
         </Tabs>
       ) : (
         <SessionHistoryCard />
@@ -654,6 +803,41 @@ export default function SessionsPage() {
               data-testid="button-confirm-ready"
             >
               Mark Ready to Send
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isMonthlyReadyToSendDialogOpen} onOpenChange={setIsMonthlyReadyToSendDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Invoice and Send Statement</DialogTitle>
+            <DialogDescription>
+              Add a note about the statement before marking as ready to invoice and send.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="monthly-statement-note">Statement Note</Label>
+              <Textarea
+                id="monthly-statement-note"
+                value={monthlyStatementNote}
+                onChange={(e) => setMonthlyStatementNote(e.target.value)}
+                placeholder="e.g., Monthly billing statement for advance payment..."
+                data-testid="input-monthly-statement-note"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="outline">Cancel</Button>
+            </DialogClose>
+            <Button 
+              onClick={handleMonthlyReadyToSend} 
+              disabled={!monthlyStatementNote.trim() || updateMonthlyStatementStatusMutation.isPending}
+              data-testid="button-confirm-monthly-ready"
+            >
+              Invoice & Send Statement
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -973,6 +1157,262 @@ export default function SessionsPage() {
                             <span className="text-xs text-green-600">Archived</span>
                           )}
                         </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    );
+  }
+
+  function MonthlyStatementsCard() {
+    return (
+      <Card className="shadow-sm">
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle>Monthly Billing Statements</CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Track monthly billing from capture to archive
+            </p>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {enrichedMonthlyStatements.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <p>No active monthly billing statements.</p>
+              <p className="text-sm mt-1">Statements appear when monthly sessions are captured.</p>
+            </div>
+          ) : (
+            <div className="rounded-md border">
+              <table className="w-full caption-bottom text-sm">
+                <thead className="[&_tr]:border-b">
+                  <tr className="border-b transition-colors hover:bg-muted/50">
+                    <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Patient</th>
+                    <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Practitioner</th>
+                    <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Period</th>
+                    <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Session Date</th>
+                    <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Status</th>
+                    <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Note</th>
+                    <th className="h-12 px-4 text-right align-middle font-medium text-muted-foreground">Amount</th>
+                    <th className="h-12 px-4 text-center align-middle font-medium text-muted-foreground">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="[&_tr:last-child]:border-0">
+                  {enrichedMonthlyStatements.map((statement) => (
+                    <tr key={statement.id} className="border-b transition-colors hover:bg-muted/50" data-testid={`row-monthly-statement-${statement.id}`}>
+                      <td className="p-4 align-middle font-medium">{statement.patientName}</td>
+                      <td className="p-4 align-middle text-muted-foreground">{statement.practitionerName}</td>
+                      <td className="p-4 align-middle">
+                        <Badge variant="outline">{statement.periodName}</Badge>
+                      </td>
+                      <td className="p-4 align-middle text-sm">{statement.sessionDate}</td>
+                      <td className="p-4 align-middle">
+                        <Badge 
+                          variant={
+                            statement.status === 'awaiting_review' ? 'secondary' :
+                            statement.status === 'ready_to_send' ? 'default' :
+                            statement.status === 'statement_sent' ? 'outline' :
+                            'secondary'
+                          }
+                          className={
+                            statement.status === 'ready_to_send' ? 'bg-blue-100 text-blue-800' :
+                            statement.status === 'statement_sent' ? 'bg-green-100 text-green-800' :
+                            ''
+                          }
+                        >
+                          {statement.status === 'awaiting_review' ? 'Awaiting Review' :
+                           statement.status === 'ready_to_send' ? 'Ready to Send' :
+                           statement.status === 'statement_sent' ? 'Statement Sent' :
+                           'Archived'}
+                        </Badge>
+                      </td>
+                      <td className="p-4 align-middle text-sm text-muted-foreground max-w-[150px]">
+                        {statement.statementTypeNote ? (
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className="truncate block cursor-help" data-testid={`monthly-note-${statement.id}`}>
+                                  {statement.statementTypeNote}
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent className="max-w-[300px]">
+                                <p className="whitespace-pre-wrap">{statement.statementTypeNote}</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        ) : (
+                          <span>-</span>
+                        )}
+                      </td>
+                      <td className="p-4 align-middle text-right font-medium">
+                        R {statement.totalAmount || 0}
+                      </td>
+                      <td className="p-4 align-middle text-center">
+                        <div className="flex items-center justify-center gap-2">
+                          {isAdmin && statement.status === 'awaiting_review' && (
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="gap-1"
+                                    onClick={() => {
+                                      setSelectedMonthlyStatementId(statement.id);
+                                      setIsMonthlyReadyToSendDialogOpen(true);
+                                    }}
+                                    data-testid={`button-monthly-ready-${statement.id}`}
+                                  >
+                                    <Send className="h-3 w-3" />
+                                    Invoice & Send
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Mark as ready to invoice and send statement</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          )}
+                          {(isReceptionist || isAdmin) && statement.status === 'ready_to_send' && (
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="gap-1"
+                                    onClick={() => handleMarkMonthlyStatementSent(statement.id)}
+                                    disabled={updateMonthlyStatementStatusMutation.isPending}
+                                    data-testid={`button-monthly-sent-${statement.id}`}
+                                  >
+                                    <CheckCircle className="h-3 w-3" />
+                                    Sent
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Mark statement as sent (will be archived)</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          )}
+                          {statement.status === 'statement_sent' && (
+                            <span className="text-xs text-green-600">Archived</span>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    );
+  }
+
+  function ArchivedStatementsCard() {
+    return (
+      <Card className="shadow-sm">
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle>Archived Statements</CardTitle>
+            <div className="flex items-center gap-2">
+              <Select value={archivedPeriodFilter} onValueChange={setArchivedPeriodFilter}>
+                <SelectTrigger className="h-9 w-[150px]" data-testid="select-archived-period">
+                  <Filter className="h-4 w-4 mr-2" />
+                  <SelectValue placeholder="Period" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Periods</SelectItem>
+                  {financialPeriods.map(p => (
+                    <SelectItem key={p.id} value={p.id.toString()}>{p.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={archivedPractitionerFilter} onValueChange={setArchivedPractitionerFilter}>
+                <SelectTrigger className="h-9 w-[150px]" data-testid="select-archived-practitioner">
+                  <SelectValue placeholder="Practitioner" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Practitioners</SelectItem>
+                  {users.map(u => (
+                    <SelectItem key={u.id} value={u.id.toString()}>{u.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={archivedBillingTypeFilter} onValueChange={setArchivedBillingTypeFilter}>
+                <SelectTrigger className="h-9 w-[130px]" data-testid="select-archived-billing-type">
+                  <SelectValue placeholder="Billing Type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Types</SelectItem>
+                  <SelectItem value="weekly">Weekly</SelectItem>
+                  <SelectItem value="monthly">Monthly</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {allArchivedStatements.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <p>No archived statements found.</p>
+              <p className="text-sm mt-1">Statements appear here after being marked as sent.</p>
+            </div>
+          ) : (
+            <div className="rounded-md border">
+              <table className="w-full caption-bottom text-sm">
+                <thead className="[&_tr]:border-b">
+                  <tr className="border-b transition-colors hover:bg-muted/50">
+                    <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Patient</th>
+                    <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Practitioner</th>
+                    <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Period</th>
+                    <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Type</th>
+                    <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Note</th>
+                    <th className="h-12 px-4 text-right align-middle font-medium text-muted-foreground">Amount</th>
+                  </tr>
+                </thead>
+                <tbody className="[&_tr:last-child]:border-0">
+                  {allArchivedStatements.map((statement, index) => (
+                    <tr key={`${statement.billingType}-${statement.id}`} className="border-b transition-colors hover:bg-muted/50" data-testid={`row-archived-${statement.id}`}>
+                      <td className="p-4 align-middle font-medium">{statement.patientName}</td>
+                      <td className="p-4 align-middle text-muted-foreground">{statement.practitionerName}</td>
+                      <td className="p-4 align-middle">
+                        <Badge variant="outline">{statement.periodName}</Badge>
+                      </td>
+                      <td className="p-4 align-middle">
+                        <Badge 
+                          variant="secondary"
+                          className={statement.billingType === 'weekly' ? 'bg-blue-100 text-blue-800' : 'bg-purple-100 text-purple-800'}
+                        >
+                          {statement.billingType === 'weekly' ? 'Weekly' : 'Monthly'}
+                        </Badge>
+                      </td>
+                      <td className="p-4 align-middle text-sm text-muted-foreground max-w-[200px]">
+                        {statement.statementTypeNote ? (
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className="truncate block cursor-help">
+                                  {statement.statementTypeNote}
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent className="max-w-[300px]">
+                                <p className="whitespace-pre-wrap">{statement.statementTypeNote}</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        ) : (
+                          <span>-</span>
+                        )}
+                      </td>
+                      <td className="p-4 align-middle text-right font-medium">
+                        R {statement.totalAmount || 0}
                       </td>
                     </tr>
                   ))}
