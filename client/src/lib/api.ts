@@ -243,13 +243,21 @@ async function deleteFinancialPeriod(id: number): Promise<void> {
   if (!res.ok) throw new Error('Failed to delete financial period');
 }
 
-async function monthlyRollover(sourceMonth: string, targetMonth: string): Promise<{ message: string; created: number; skipped: number }> {
+async function monthlyRollover(sourceMonth: string, targetMonth: string): Promise<{ message: string; created: number; deleted: number }> {
   const res = await fetch('/api/sessions/monthly-rollover', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ sourceMonth, targetMonth })
   });
   if (!res.ok) throw new Error('Failed to perform monthly rollover');
+  return res.json();
+}
+
+async function undoMonthlyRollover(month: string): Promise<{ message: string; deleted: number }> {
+  const res = await fetch(`/api/sessions/monthly-rollover/${month}`, {
+    method: 'DELETE'
+  });
+  if (!res.ok) throw new Error('Failed to undo monthly rollover');
   return res.json();
 }
 
@@ -464,6 +472,16 @@ export function useMonthlyRollover() {
   return useMutation({
     mutationFn: ({ sourceMonth, targetMonth }: { sourceMonth: string; targetMonth: string }) => 
       monthlyRollover(sourceMonth, targetMonth),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['sessions'] });
+    },
+  });
+}
+
+export function useUndoMonthlyRollover() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (month: string) => undoMonthlyRollover(month),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sessions'] });
     },

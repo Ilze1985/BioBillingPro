@@ -392,19 +392,23 @@ export async function registerRoutes(
                activePatientIds.has(s.patientId);
       });
       
-      // Check for existing sessions in target month to avoid duplicates
+      // Delete any existing sessions in target month first (to allow re-generation)
       const existingTargetSessions = sessions.filter(s => {
         const sessionMonth = s.date.substring(0, 7);
         return sessionMonth === targetMonth && s.billingFrequency === 'monthly';
       });
       
-      const existingPatientIds = new Set(existingTargetSessions.map(s => s.patientId));
+      for (const session of existingTargetSessions) {
+        await storage.deleteSession(session.id);
+      }
       
-      // Create new sessions for target month (skip if already exists)
+      // Create new sessions for target month
       const newSessions = [];
+      const processedPatientIds = new Set<number>();
+      
       for (const sourceSession of sourceMonthSessions) {
-        if (existingPatientIds.has(sourceSession.patientId)) {
-          continue; // Skip - already has a session in target month
+        if (processedPatientIds.has(sourceSession.patientId)) {
+          continue; // Skip duplicate patients within same batch
         }
         
         // Calculate target date (same day of month, or last day if not valid)
@@ -426,17 +430,49 @@ export async function registerRoutes(
         });
         
         newSessions.push(newSession);
-        existingPatientIds.add(sourceSession.patientId); // Prevent duplicates within batch
+        processedPatientIds.add(sourceSession.patientId);
       }
       
       res.status(201).json({
         message: `Created ${newSessions.length} sessions for ${targetMonth}`,
         created: newSessions.length,
-        skipped: sourceMonthSessions.length - newSessions.length
+        deleted: existingTargetSessions.length
       });
     } catch (error) {
       console.error("Monthly rollover error:", error);
       res.status(500).json({ message: "Failed to perform monthly rollover" });
+    }
+  });
+
+  // Undo monthly rollover - delete all monthly sessions for a specific month
+  app.delete("/api/sessions/monthly-rollover/:month", async (req, res) => {
+    try {
+      const { month } = req.params;
+      
+      if (!month || !/^\d{4}-\d{2}$/.test(month)) {
+        return res.status(400).json({ message: "Valid month in YYYY-MM format is required" });
+      }
+      
+      const sessions = await storage.getAllSessions();
+      
+      // Find all monthly sessions for the specified month
+      const targetSessions = sessions.filter(s => {
+        const sessionMonth = s.date.substring(0, 7);
+        return sessionMonth === month && s.billingFrequency === 'monthly';
+      });
+      
+      // Delete all matching sessions
+      for (const session of targetSessions) {
+        await storage.deleteSession(session.id);
+      }
+      
+      res.json({
+        message: `Deleted ${targetSessions.length} sessions for ${month}`,
+        deleted: targetSessions.length
+      });
+    } catch (error) {
+      console.error("Undo monthly rollover error:", error);
+      res.status(500).json({ message: "Failed to undo monthly rollover" });
     }
   });
 

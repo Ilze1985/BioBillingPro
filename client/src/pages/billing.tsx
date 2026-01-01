@@ -6,9 +6,20 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { useSessions, useFinancialPeriods, usePatients, useMonthlyRollover, useUpdatePatient } from "@/lib/api";
+import { useSessions, useFinancialPeriods, usePatients, useMonthlyRollover, useUndoMonthlyRollover, useUpdatePatient } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
-import { DollarSign, Calendar, TrendingUp, Copy, EyeOff, Eye } from "lucide-react";
+import { DollarSign, Calendar, TrendingUp, Copy, EyeOff, Eye, Undo2 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 function getWeekNumber(sessionDate: string, periodStart: string): number {
   const session = new Date(sessionDate);
@@ -56,6 +67,7 @@ export default function BillingPage() {
   const { data: financialPeriods = [], isLoading: periodsLoading } = useFinancialPeriods();
   const { data: patients = [] } = usePatients();
   const monthlyRolloverMutation = useMonthlyRollover();
+  const undoRolloverMutation = useUndoMonthlyRollover();
   const updatePatientMutation = useUpdatePatient();
   const { toast } = useToast();
   const [selectedPeriodId, setSelectedPeriodId] = useState<string>("");
@@ -218,12 +230,38 @@ export default function BillingPage() {
       
       toast({
         title: "Monthly Rollover Complete",
-        description: `Created ${result.created} sessions for ${targetMonth}. ${result.skipped > 0 ? `Skipped ${result.skipped} (already existed).` : ''}`,
+        description: `Created ${result.created} sessions for ${targetMonth}.${result.deleted > 0 ? ` Replaced ${result.deleted} existing.` : ''}`,
       });
     } catch {
       toast({
         title: "Error",
         description: "Failed to perform monthly rollover.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleUndoRollover = async () => {
+    if (!latestMonth) {
+      toast({
+        title: "No Data to Undo",
+        description: "No monthly sessions found.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    try {
+      const result = await undoRolloverMutation.mutateAsync(latestMonth);
+      
+      toast({
+        title: "Undo Complete",
+        description: `Deleted ${result.deleted} sessions from ${latestMonth}.`,
+      });
+    } catch {
+      toast({
+        title: "Error",
+        description: "Failed to undo monthly rollover.",
         variant: "destructive",
       });
     }
@@ -422,15 +460,45 @@ export default function BillingPage() {
                   </Label>
                 </div>
               </div>
-              <Button
-                onClick={handleMonthlyRollover}
-                disabled={!latestMonth || monthlyRolloverMutation.isPending}
-                className="gap-2"
-                data-testid="button-monthly-rollover"
-              >
-                <Copy className="h-4 w-4" />
-                {monthlyRolloverMutation.isPending ? 'Creating...' : 'Generate Next Month'}
-              </Button>
+              <div className="flex items-center gap-2">
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button
+                      variant="outline"
+                      disabled={!latestMonth || undoRolloverMutation.isPending}
+                      className="gap-2"
+                      data-testid="button-undo-rollover"
+                    >
+                      <Undo2 className="h-4 w-4" />
+                      {undoRolloverMutation.isPending ? 'Deleting...' : 'Undo Last Month'}
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Undo Monthly Billing?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        This will delete all monthly billing sessions for {latestMonth}. 
+                        This action cannot be undone. Are you sure you want to continue?
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction onClick={handleUndoRollover} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                        Yes, Delete Sessions
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+                <Button
+                  onClick={handleMonthlyRollover}
+                  disabled={!latestMonth || monthlyRolloverMutation.isPending}
+                  className="gap-2"
+                  data-testid="button-monthly-rollover"
+                >
+                  <Copy className="h-4 w-4" />
+                  {monthlyRolloverMutation.isPending ? 'Creating...' : 'Generate Next Month'}
+                </Button>
+              </div>
             </div>
 
             <div className="grid gap-4 md:grid-cols-3">
