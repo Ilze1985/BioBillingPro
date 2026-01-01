@@ -466,6 +466,7 @@ export function useUpdateSessionStatus() {
       updateSessionStatus(id, status, userRole),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sessions'] });
+      queryClient.invalidateQueries({ queryKey: ['weeklyBillingStatements'] });
     },
   });
 }
