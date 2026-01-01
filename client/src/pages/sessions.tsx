@@ -276,13 +276,13 @@ export default function SessionsPage() {
   };
 
   const handleMonthlyReadyToSend = async () => {
-    if (!selectedMonthlyStatementId || !monthlyStatementNote.trim()) return;
+    if (!selectedMonthlyStatementId) return;
     try {
       await updateMonthlyStatementStatusMutation.mutateAsync({
         id: selectedMonthlyStatementId,
         status: 'ready_to_send' as StatementStatus,
         userRole: currentUserRole,
-        statementTypeNote: monthlyStatementNote.trim()
+        statementTypeNote: monthlyStatementNote.trim() || undefined
       });
       toast({
         title: "Invoice & Statement Ready",
@@ -850,7 +850,7 @@ export default function SessionsPage() {
             </DialogClose>
             <Button 
               onClick={handleMonthlyReadyToSend} 
-              disabled={!monthlyStatementNote.trim() || updateMonthlyStatementStatusMutation.isPending}
+              disabled={updateMonthlyStatementStatusMutation.isPending}
               data-testid="button-confirm-monthly-ready"
             >
               Invoice & Send Statement
