@@ -81,6 +81,19 @@ export default function SessionsPage() {
   const handleSave = async () => {
     if (!selectedPractitionerId || !selectedPatientId || selectedCodeIds.length === 0) return;
 
+    const patient = patients.find(p => p.id === parseInt(selectedPatientId));
+    if (!patient) return;
+
+    // Prevent billing for inactive patients on monthly billing
+    if (selectedBillingFrequency === 'monthly' && patient.monthlyBillingActive === 'no') {
+      toast({
+        title: "Patient Inactive",
+        description: `${patient.firstName} ${patient.surname} is marked as inactive. Please reactivate the patient before billing.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
     // Prevent future dates for weekly billing
     if (selectedBillingFrequency === 'weekly') {
       const today = format(new Date(), "yyyy-MM-dd");
@@ -95,9 +108,6 @@ export default function SessionsPage() {
     }
 
     const practitionerId = parseInt(selectedPractitionerId);
-
-    const patient = patients.find(p => p.id === parseInt(selectedPatientId));
-    if (!patient) return;
 
     const codeIds = selectedCodeIds.map(id => parseInt(id));
 

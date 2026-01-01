@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { useSessions, useFinancialPeriods, usePatients, useMonthlyRollover } from "@/lib/api";
+import { useSessions, useFinancialPeriods, usePatients, useMonthlyRollover, useUpdatePatient } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { DollarSign, Calendar, TrendingUp, Copy, EyeOff, Eye } from "lucide-react";
 
@@ -28,6 +28,7 @@ export default function BillingPage() {
   const { data: financialPeriods = [], isLoading: periodsLoading } = useFinancialPeriods();
   const { data: patients = [] } = usePatients();
   const monthlyRolloverMutation = useMonthlyRollover();
+  const updatePatientMutation = useUpdatePatient();
   const { toast } = useToast();
   const [selectedPeriodId, setSelectedPeriodId] = useState<string>("");
   const [showInactive, setShowInactive] = useState<boolean>(false);
@@ -453,6 +454,7 @@ export default function BillingPage() {
                   <table className="w-full caption-bottom text-sm">
                     <thead className="[&_tr]:border-b sticky top-0 bg-background">
                       <tr className="border-b transition-colors hover:bg-muted/50">
+                        <th className="h-12 px-4 text-center align-middle font-medium text-muted-foreground">Active</th>
                         <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Month</th>
                         <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Date</th>
                         <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Patient</th>
@@ -465,14 +467,39 @@ export default function BillingPage() {
                     <tbody className="[&_tr:last-child]:border-0">
                       {monthlyData.sessions.length === 0 ? (
                         <tr>
-                          <td colSpan={7} className="p-4 text-center text-muted-foreground">No monthly billing sessions in this period</td>
+                          <td colSpan={8} className="p-4 text-center text-muted-foreground">No monthly billing sessions in this period</td>
                         </tr>
                       ) : (
                         monthlyData.sessions.map((session) => {
                           const sessionDate = new Date(session.date);
                           const monthLabel = sessionDate.toLocaleDateString('en-US', { month: 'short' });
+                          const patient = patients.find(p => p.id === session.patientId);
+                          const isActive = patient?.monthlyBillingActive !== 'no';
                           return (
-                            <tr key={session.id} className="border-b transition-colors hover:bg-muted/50" data-testid={`row-monthly-session-${session.id}`}>
+                            <tr key={session.id} className={`border-b transition-colors hover:bg-muted/50 ${!isActive ? 'opacity-50' : ''}`} data-testid={`row-monthly-session-${session.id}`}>
+                              <td className="p-4 align-middle text-center">
+                                <input
+                                  type="checkbox"
+                                  checked={isActive}
+                                  onChange={(e) => {
+                                    if (patient) {
+                                      updatePatientMutation.mutate({
+                                        id: patient.id,
+                                        data: { monthlyBillingActive: e.target.checked ? 'yes' : 'no' }
+                                      }, {
+                                        onSuccess: () => {
+                                          toast({
+                                            title: e.target.checked ? "Patient Activated" : "Patient Deactivated",
+                                            description: `${patient.firstName} ${patient.surname} is now ${e.target.checked ? 'active' : 'inactive'}. ${!e.target.checked ? 'No further billing allowed until reactivated.' : ''}`,
+                                          });
+                                        }
+                                      });
+                                    }
+                                  }}
+                                  className="h-4 w-4 rounded border-gray-300 cursor-pointer"
+                                  data-testid={`checkbox-billing-active-${session.id}`}
+                                />
+                              </td>
                               <td className="p-4 align-middle">
                                 <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold bg-purple-100 text-purple-800">
                                   {monthLabel}
