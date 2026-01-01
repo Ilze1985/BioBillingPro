@@ -55,6 +55,16 @@ export default function SessionsPage() {
   // Filter codes by selected billing frequency
   const billingCodes = allBillingCodes.filter(code => code.billingFrequency === selectedBillingFrequency);
 
+  // Auto-populate billing type from patient when patient is selected
+  useEffect(() => {
+    if (selectedPatientId) {
+      const patient = patients.find(p => p.id === parseInt(selectedPatientId));
+      if (patient) {
+        setSelectedBillingType(patient.billingType);
+      }
+    }
+  }, [selectedPatientId, patients]);
+
   // Reset selected codes and discount when billing type or frequency changes
   useEffect(() => {
     setSelectedCodeIds([]);
