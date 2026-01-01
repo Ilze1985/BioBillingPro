@@ -184,10 +184,7 @@ export default function SessionsPage() {
                       />
                     </div>
                     {patients
-                      .filter(p => {
-                        const fullName = `${p.firstName} ${p.surname}`.toLowerCase();
-                        return fullName.includes(patientSearchTerm.toLowerCase());
-                      })
+                      .filter(p => p.surname.toLowerCase().includes(patientSearchTerm.toLowerCase()))
                       .map(p => (
                         <SelectItem key={p.id} value={p.id.toString()}>{p.firstName} {p.surname}</SelectItem>
                       ))}
