@@ -702,11 +702,11 @@ export default function SessionsPage() {
                   }
                   
                   return (
-                    <div className="flex justify-between items-center p-2 bg-muted rounded-md">
-                      <span className="text-sm text-muted-foreground">
-                        {selectedCodeIds.length} code{selectedCodeIds.length > 1 ? 's' : ''} selected
+                    <div className="flex justify-between items-center p-2 bg-muted rounded-md gap-2">
+                      <span className="text-sm font-medium truncate flex-1">
+                        {selectedCodes.map(c => c?.code).join(', ')}
                       </span>
-                      <div className="text-right">
+                      <div className="text-right shrink-0">
                         {finalPrice !== totalPrice ? (
                           <div className="flex flex-col items-end">
                             <span className="font-semibold text-green-600">R {finalPrice}</span>
