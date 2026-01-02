@@ -45,7 +45,7 @@ export interface Session {
   date: string;
   time: string;
   notes: string | null;
-  discountPercent: number | null;
+  discountAmount: number | null;
   status: 'captured' | 'invoiced' | 'paid';
   createdAt: Date | null;
 }

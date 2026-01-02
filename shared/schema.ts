@@ -78,7 +78,7 @@ export const sessions = pgTable("sessions", {
   date: text("date").notNull(),
   time: text("time").notNull(),
   notes: text("notes"),
-  discountPercent: integer("discount_percent").default(0),
+  discountAmount: integer("discount_amount").default(0),
   status: sessionStatusEnum("status").notNull().default('captured'),
   createdAt: timestamp("created_at").defaultNow(),
 });
@@ -160,7 +160,7 @@ export const insertUserSchema = createInsertSchema(users).omit({ id: true });
 export const insertPatientSchema = createInsertSchema(patients).omit({ id: true });
 export const insertBillingCodeSchema = createInsertSchema(billingCodes).omit({ id: true });
 export const insertSessionSchema = createInsertSchema(sessions).omit({ id: true, createdAt: true }).extend({
-  discountPercent: z.number().min(0).optional().default(0)
+  discountAmount: z.number().min(0).optional().default(0)
 });
 export const insertFinancialPeriodSchema = createInsertSchema(financialPeriods).omit({ id: true });
 export const insertWeeklyBillingStatementSchema = createInsertSchema(weeklyBillingStatements).omit({ id: true, createdAt: true, updatedAt: true });

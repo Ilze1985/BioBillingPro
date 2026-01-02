@@ -157,7 +157,7 @@ export default function SessionsPage() {
         time: selectedBillingFrequency === 'monthly' ? 'N/A' : (timeNotApplicable ? 'N/A' : sessionTime),
         status: 'captured',
         notes: sessionNotes || null,
-        discountPercent: (selectedBillingType === 'private' || selectedBillingType === 'private_cash') ? discountAmount : 0
+        discountAmount: (selectedBillingType === 'private' || selectedBillingType === 'private_cash') ? discountAmount : 0
       });
       
       setIsDialogOpen(false);
@@ -726,7 +726,7 @@ export default function SessionsPage() {
                     min="0"
                     value={discountAmount}
                     onChange={(e) => {
-                      const val = e.target.value === '' ? 0 : Math.max(0, parseInt(e.target.value) || 0);
+                      const val = e.target.value === '' ? 0 : Math.max(0, parseFloat(e.target.value) || 0);
                       setDiscountAmount(val);
                     }}
                     placeholder="0"
@@ -990,17 +990,17 @@ export default function SessionsPage() {
                       </span>
                     </td>
                     <td className="p-4 align-middle text-left font-medium">
-                      R {session.totalPrice.toFixed(2)}
+                      R {session.totalPrice?.toFixed(2) || "0.00"}
                     </td>
                     <td className="p-4 align-middle text-left font-medium text-destructive">
-                      {session.discountPercent && session.discountPercent > 0 ? (
-                        <span>-{session.discountPercent}% (R {((session.totalPrice * session.discountPercent) / 100).toFixed(2)})</span>
+                      {session.discountAmount && session.discountAmount > 0 ? (
+                        <span>- R {session.discountAmount.toFixed(2)}</span>
                       ) : (
                         <span className="text-muted-foreground">-</span>
                       )}
                     </td>
                     <td className="p-4 align-middle text-right font-bold text-primary">
-                      R {session.finalPrice.toFixed(2)}
+                      R {session.finalPrice?.toFixed(2) || "0.00"}
                     </td>
                     {canMarkAsInvoiced && (
                       <td className="p-4 align-middle text-center">

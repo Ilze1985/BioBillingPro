@@ -303,7 +303,7 @@ export async function registerRoutes(
           const sessionTotal = (session.billingCodeIds || []).reduce((sum, codeId) => {
             const code = billingCodes.find(c => c.id === codeId);
             return sum + (code?.price || 0);
-          }, 0);
+          }, 0) - (session.discountAmount || 0);
           
           // Create monthly billing statement linked to this session (even without a period)
           await storage.createMonthlyBillingStatement({
@@ -350,6 +350,24 @@ export async function registerRoutes(
       
       const sessionData = insertSessionSchema.partial().parse(req.body);
       const session = await storage.updateSession(id, sessionData);
+      
+      // If session is updated and it's monthly, update the associated statement
+      if (session && session.billingFrequency === 'monthly') {
+        const statements = await storage.getAllMonthlyBillingStatements();
+        const statement = statements.find(s => s.sessionId === session.id);
+        if (statement) {
+          const billingCodes = await storage.getAllBillingCodes();
+          const sessionTotal = (session.billingCodeIds || []).reduce((sum, codeId) => {
+            const code = billingCodes.find(c => c.id === codeId);
+            return sum + (code?.price || 0);
+          }, 0) - (session.discountAmount || 0);
+          
+          await storage.updateMonthlyBillingStatement(statement.id, {
+            totalAmount: sessionTotal
+          });
+        }
+      }
+      
       res.json(session);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -418,24 +436,24 @@ export async function registerRoutes(
             const weekStartStr = weekStart.toISOString().split('T')[0];
             const weekEndStr = weekEnd.toISOString().split('T')[0];
             
-            // Check if a statement already exists for this patient/practitioner/period/week
-            const existingStatements = await storage.getAllWeeklyBillingStatements();
-            const existingStatement = existingStatements.find(s => 
-              s.patientId === session.patientId &&
-              s.practitionerId === session.practitionerId &&
-              s.financialPeriodId === period.id &&
-              s.weekStartDate === weekStartStr &&
-              s.weekEndDate === weekEndStr
-            );
-            
-            // Calculate session total
-            const billingCodes = await storage.getAllBillingCodes();
-            const sessionTotal = (session.billingCodeIds || []).reduce((sum, codeId) => {
-              const code = billingCodes.find(c => c.id === codeId);
-              return sum + (code?.price || 0);
-            }, 0);
-            
-            if (existingStatement) {
+        // Check if a statement already exists for this patient/practitioner/period/week
+        const existingStatements = await storage.getAllWeeklyBillingStatements();
+        const existingStatement = existingStatements.find(s => 
+          s.patientId === session.patientId &&
+          s.practitionerId === session.practitionerId &&
+          s.financialPeriodId === period.id &&
+          s.weekStartDate === weekStartStr &&
+          s.weekEndDate === weekEndStr
+        );
+        
+        // Calculate session total
+        const billingCodes = await storage.getAllBillingCodes();
+        const sessionTotal = (session.billingCodeIds || []).reduce((sum, codeId) => {
+          const code = billingCodes.find(c => c.id === codeId);
+          return sum + (code?.price || 0);
+        }, 0) - (session.discountAmount || 0);
+        
+        if (existingStatement) {
               // Update existing statement total
               await storage.updateWeeklyBillingStatement(existingStatement.id, {
                 totalAmount: (existingStatement.totalAmount || 0) + sessionTotal
@@ -582,7 +600,7 @@ export async function registerRoutes(
           time: sourceSession.time,
           status: 'captured',
           notes: sourceSession.notes,
-          discountPercent: sourceSession.discountPercent || 0
+          discountAmount: sourceSession.discountAmount || 0
         });
         
         newSessions.push(newSession);
@@ -658,7 +676,7 @@ export async function registerRoutes(
         );
         
         // Calculate final price with discounts
-        const additionalDiscount = session.discountPercent || 0; // Now stores R-value, not percentage
+        const additionalDiscount = (session as any).discountAmount || 0; // Now stores R-value
         let finalPrice = totalPrice;
         
         // Private cash has a fixed 10% discount, rounded to nearest R10
