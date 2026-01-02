@@ -9,12 +9,11 @@ import {
   Cake,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useUsers } from "@/lib/api";
+import { useAuth } from "@/lib/auth";
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
-  const { data: users = [] } = useUsers();
-  const currentUser = users[0];
+  const { user, logout, isAdmin } = useAuth();
 
   const navigation = [
     { name: "Dashboard", href: "/", icon: LayoutDashboard },
@@ -41,7 +40,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         <div className="flex-1 overflow-y-auto py-6 px-4">
           <nav className="space-y-1">
             {navigation.map((item) => {
-              if (item.adminOnly && currentUser?.role !== 'admin') return null;
+              if (item.adminOnly && !isAdmin) return null;
               
               const isActive = location === item.href;
               return (
@@ -64,13 +63,18 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         <div className="border-t border-sidebar-border p-4">
           <div className="flex items-center gap-3 px-3 py-2">
             <div className="h-9 w-9 rounded-full bg-sidebar-accent flex items-center justify-center text-sm font-medium text-sidebar-accent-foreground">
-              {currentUser?.name.charAt(0)}
+              {user?.name?.charAt(0) || '?'}
             </div>
             <div className="flex-1 overflow-hidden">
-              <p className="truncate text-sm font-medium text-sidebar-foreground">{currentUser?.name}</p>
-              <p className="truncate text-xs text-sidebar-foreground/60 capitalize">{currentUser?.role}</p>
+              <p className="truncate text-sm font-medium text-sidebar-foreground" data-testid="text-user-name">{user?.name}</p>
+              <p className="truncate text-xs text-sidebar-foreground/60 capitalize" data-testid="text-user-role">{user?.role}</p>
             </div>
-            <button className="text-sidebar-foreground/50 hover:text-sidebar-foreground">
+            <button 
+              onClick={logout}
+              className="text-sidebar-foreground/50 hover:text-sidebar-foreground"
+              data-testid="button-logout"
+              title="Sign out"
+            >
               <LogOut className="h-5 w-5" />
             </button>
           </div>
