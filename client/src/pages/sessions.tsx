@@ -150,6 +150,19 @@ export default function SessionsPage() {
       }
     }
 
+    // Validate that session date falls within a financial period
+    const validPeriod = financialPeriods.find(period => 
+      sessionDate >= period.startDate && sessionDate <= period.endDate
+    );
+    if (!validPeriod) {
+      toast({
+        title: "Invalid Date",
+        description: "The selected date does not fall within any financial period. Please select a date within a valid financial period.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const practitionerId = parseInt(selectedPractitionerId);
 
     const codeIds = selectedCodeIds.map(id => parseInt(id));
@@ -1580,7 +1593,7 @@ export default function SessionsPage() {
 
   function ReconciliationCard() {
     // Get unique practice names from sessions dynamically
-    const uniquePractices = [...new Set(sessions.map(s => s.practiceName).filter(Boolean))] as string[];
+    const uniquePractices = Array.from(new Set(sessions.map(s => s.practiceName).filter(Boolean))) as string[];
     
     // Get selected period for date validation
     const selectedPeriod = reconPeriodFilter !== "all" 
