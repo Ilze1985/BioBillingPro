@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
-import { usePatients, useCreatePatient, useUpdatePatient, useDeletePatient, BillingType } from "@/lib/api";
+import { usePatients, useCreatePatient, useUpdatePatient, useDeletePatient, usePopulationGroups, BillingType } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -65,6 +65,7 @@ const emptyFormData: PatientFormData = {
 
 export default function PatientsPage() {
   const { data: patients = [], isLoading } = usePatients();
+  const { data: populationGroups = [] } = usePopulationGroups();
   const createPatientMutation = useCreatePatient();
   const updatePatientMutation = useUpdatePatient();
   const deletePatientMutation = useDeletePatient();
@@ -319,14 +320,9 @@ export default function PatientsPage() {
           <Select value={formData.populationGroup} onValueChange={(v) => setFormData({ ...formData, populationGroup: v })}>
             <SelectTrigger data-testid="select-population-group"><SelectValue placeholder="Select" /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="orthopaedic">Orthopaedic</SelectItem>
-              <SelectItem value="metabolic">Metabolic</SelectItem>
-              <SelectItem value="cardiac">Cardiac</SelectItem>
-              <SelectItem value="conditioning_development_10_13">Conditioning Development (10-13y)</SelectItem>
-              <SelectItem value="conditioning_adolescent_14_18">Conditioning Adolescent (14-18y)</SelectItem>
-              <SelectItem value="conditioning_adult">Conditioning Adult</SelectItem>
-              <SelectItem value="wellness">Wellness</SelectItem>
-              <SelectItem value="geriatric">Geriatric</SelectItem>
+              {populationGroups.map((group) => (
+                <SelectItem key={group.id} value={group.name}>{group.name}</SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
