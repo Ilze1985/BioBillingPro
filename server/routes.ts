@@ -7,6 +7,7 @@ import {
   insertBillingCodeSchema, 
   insertSessionSchema,
   insertFinancialPeriodSchema,
+  insertPopulationGroupSchema,
   insertWeeklyBillingStatementSchema,
   insertMonthlyBillingStatementSchema
 } from "@shared/schema";
@@ -626,6 +627,52 @@ export async function registerRoutes(
       res.status(204).send();
     } catch (error) {
       res.status(500).json({ message: "Failed to delete financial period" });
+    }
+  });
+
+  // Population Groups
+  app.get("/api/population-groups", async (_req, res) => {
+    const groups = await storage.getAllPopulationGroups();
+    res.json(groups);
+  });
+
+  app.post("/api/population-groups", async (req, res) => {
+    try {
+      const groupData = insertPopulationGroupSchema.parse(req.body);
+      const group = await storage.createPopulationGroup(groupData);
+      res.status(201).json(group);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid population group data", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to create population group" });
+    }
+  });
+
+  app.patch("/api/population-groups/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const groupData = insertPopulationGroupSchema.partial().parse(req.body);
+      const group = await storage.updatePopulationGroup(id, groupData);
+      if (!group) {
+        return res.status(404).json({ message: "Population group not found" });
+      }
+      res.json(group);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid population group data", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to update population group" });
+    }
+  });
+
+  app.delete("/api/population-groups/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await storage.deletePopulationGroup(id);
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete population group" });
     }
   });
 
