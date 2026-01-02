@@ -519,7 +519,7 @@ export default function SessionsPage() {
                   className="h-9 mb-1"
                   data-testid="input-patient-search"
                 />
-                <Select value={selectedPatientId} onValueChange={setSelectedPatientId}>
+                <Select value={selectedPatientId} onValueChange={(value) => { setSelectedPatientId(value); setPatientSearchTerm(""); }}>
                   <SelectTrigger id="patient" data-testid="select-patient">
                     <SelectValue placeholder="Select patient" />
                   </SelectTrigger>
@@ -670,6 +670,7 @@ export default function SessionsPage() {
                         onChange={(e) => {
                           if (e.target.checked) {
                             setSelectedCodeIds([...selectedCodeIds, c.id.toString()]);
+                            setCodeSearchTerm("");
                           } else {
                             setSelectedCodeIds(selectedCodeIds.filter(id => id !== c.id.toString()));
                           }
