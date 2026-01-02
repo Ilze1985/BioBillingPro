@@ -73,7 +73,7 @@ export interface IStorage {
   getArchivedWeeklyBillingStatements(): Promise<WeeklyBillingStatement[]>;
   createWeeklyBillingStatement(statement: InsertWeeklyBillingStatement): Promise<WeeklyBillingStatement>;
   updateWeeklyBillingStatement(id: number, data: Partial<InsertWeeklyBillingStatement>): Promise<WeeklyBillingStatement | undefined>;
-  updateWeeklyBillingStatementStatus(id: number, status: 'awaiting_review' | 'ready_to_send' | 'statement_sent' | 'archived', statementTypeNote?: string): Promise<WeeklyBillingStatement | undefined>;
+  updateWeeklyBillingStatementStatus(id: number, status: 'awaiting_review' | 'ready_to_send' | 'statement_sent' | 'archived', statementTypeNote?: string, sentDate?: string): Promise<WeeklyBillingStatement | undefined>;
   deleteWeeklyBillingStatement(id: number): Promise<boolean>;
 
   // Monthly Billing Statements
@@ -282,11 +282,15 @@ export class DatabaseStorage implements IStorage {
   async updateWeeklyBillingStatementStatus(
     id: number, 
     status: 'awaiting_review' | 'ready_to_send' | 'statement_sent' | 'archived',
-    statementTypeNote?: string
+    statementTypeNote?: string,
+    sentDate?: string
   ): Promise<WeeklyBillingStatement | undefined> {
     const updateData: Partial<WeeklyBillingStatement> = { status, updatedAt: new Date() };
     if (statementTypeNote !== undefined) {
       updateData.statementTypeNote = statementTypeNote;
+    }
+    if (sentDate !== undefined) {
+      updateData.sentDate = sentDate;
     }
     const [statement] = await db.update(weeklyBillingStatements)
       .set(updateData)

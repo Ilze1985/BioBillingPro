@@ -859,7 +859,9 @@ export async function registerRoutes(
         });
       }
 
-      const statement = await storage.updateWeeklyBillingStatementStatus(id, status, statementTypeNote);
+      // Set sentDate when marking as statement_sent
+      const sentDate = status === 'statement_sent' ? new Date().toISOString().split('T')[0] : undefined;
+      const statement = await storage.updateWeeklyBillingStatementStatus(id, status, statementTypeNote, sentDate);
       if (!statement) {
         return res.status(404).json({ message: "Statement not found" });
       }

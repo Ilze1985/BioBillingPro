@@ -83,6 +83,7 @@ export interface WeeklyBillingStatement {
   status: StatementStatus;
   statementTypeNote: string | null;
   totalAmount: number | null;
+  sentDate: string | null;
   createdAt: Date | null;
   updatedAt: Date | null;
 }
