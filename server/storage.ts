@@ -56,6 +56,7 @@ export interface IStorage {
   createSession(session: InsertSession): Promise<Session>;
   updateSession(id: number, data: Partial<InsertSession>): Promise<Session | undefined>;
   updateSessionStatus(id: number, status: 'captured' | 'invoiced' | 'paid'): Promise<Session | undefined>;
+  updateSessionControlStatus(id: number, controlStatus: 'awaiting_review' | 'invoice_and_send'): Promise<Session | undefined>;
   deleteSession(id: number): Promise<boolean>;
 
   // Financial Periods
@@ -205,6 +206,15 @@ export class DatabaseStorage implements IStorage {
     const [session] = await db
       .update(sessions)
       .set({ status })
+      .where(eq(sessions.id, id))
+      .returning();
+    return session || undefined;
+  }
+
+  async updateSessionControlStatus(id: number, controlStatus: 'awaiting_review' | 'invoice_and_send'): Promise<Session | undefined> {
+    const [session] = await db
+      .update(sessions)
+      .set({ controlStatus })
       .where(eq(sessions.id, id))
       .returning();
     return session || undefined;

@@ -8,6 +8,7 @@ export const sessionStatusEnum = pgEnum('session_status', ['captured', 'invoiced
 export const billingTypeEnum = pgEnum('billing_type', ['medical_aid', 'private', 'private_cash']);
 export const billingFrequencyEnum = pgEnum('billing_frequency', ['weekly', 'monthly']);
 export const statementStatusEnum = pgEnum('statement_status', ['awaiting_review', 'ready_to_send', 'statement_sent', 'archived']);
+export const invoiceControlStatusEnum = pgEnum('invoice_control_status', ['awaiting_review', 'invoice_and_send']);
 export const genderEnum = pgEnum('gender', ['male', 'female']);
 export const populationGroupEnum = pgEnum('population_group', [
   'orthopaedic', 'metabolic', 'cardiac', 
@@ -80,6 +81,7 @@ export const sessions = pgTable("sessions", {
   notes: text("notes"),
   discountAmount: integer("discount_amount").default(0),
   status: sessionStatusEnum("status").notNull().default('captured'),
+  controlStatus: invoiceControlStatusEnum("control_status").default('awaiting_review'),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

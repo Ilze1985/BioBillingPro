@@ -482,6 +482,52 @@ export async function registerRoutes(
     }
   });
 
+  app.patch("/api/sessions/:id/control-status", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { controlStatus } = req.body;
+      const userRole = req.headers['x-user-role'] as string;
+      
+      if (!['awaiting_review', 'invoice_and_send'].includes(controlStatus)) {
+        return res.status(400).json({ message: "Invalid control status value" });
+      }
+      
+      // Get the session to check if it's monthly
+      const existingSession = await storage.getSession(id);
+      if (!existingSession) {
+        return res.status(404).json({ message: "Session not found" });
+      }
+      
+      // Only monthly sessions can have control status changed
+      if (existingSession.billingFrequency !== 'monthly') {
+        return res.status(400).json({ message: "Control status can only be set for monthly sessions" });
+      }
+      
+      // Only admin can set control status to 'invoice_and_send'
+      if (controlStatus === 'invoice_and_send' && userRole !== 'admin') {
+        return res.status(403).json({ 
+          message: "Only administrators can mark sessions as 'Invoice and send'." 
+        });
+      }
+      
+      // Only receptionist or admin can change control status
+      if (userRole !== 'receptionist' && userRole !== 'admin') {
+        return res.status(403).json({ 
+          message: "Only receptionists or administrators can change control status." 
+        });
+      }
+
+      const session = await storage.updateSessionControlStatus(id, controlStatus);
+      if (!session) {
+        return res.status(404).json({ message: "Session not found" });
+      }
+      
+      res.json(session);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to update session control status" });
+    }
+  });
+
   app.delete("/api/sessions/:id", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
