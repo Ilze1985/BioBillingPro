@@ -9,11 +9,13 @@ import {
   insertFinancialPeriodSchema,
   insertPopulationGroupSchema,
   insertWeeklyBillingStatementSchema,
-  insertMonthlyBillingStatementSchema
+  insertMonthlyBillingStatementSchema,
+  loginSchema
 } from "@shared/schema";
 import { z } from "zod";
 import multer from "multer";
 import * as XLSX from "xlsx";
+import { hashPassword, verifyPassword, createSession, destroySession, requireAuth, requireAdmin, requirePractitionerOrAdmin } from "./auth";
 
 const upload = multer({ 
   storage: multer.memoryStorage(),
@@ -25,17 +27,68 @@ export async function registerRoutes(
   app: Express
 ): Promise<Server> {
   
-  // Users
-  app.get("/api/users", async (_req, res) => {
+  // Auth routes
+  app.post("/api/auth/login", async (req, res) => {
+    try {
+      const credentials = loginSchema.parse(req.body);
+      const user = await storage.getUserByEmail(credentials.email);
+      
+      if (!user) {
+        return res.status(401).json({ message: "Invalid email or password" });
+      }
+      
+      const isValid = await verifyPassword(credentials.password, user.password);
+      if (!isValid) {
+        return res.status(401).json({ message: "Invalid email or password" });
+      }
+      
+      const sessionId = await createSession(user.id);
+      
+      res.cookie("session", sessionId, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      });
+      
+      const { password, ...safeUser } = user;
+      res.json({ user: safeUser });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid credentials format" });
+      }
+      res.status(500).json({ message: "Login failed" });
+    }
+  });
+  
+  app.post("/api/auth/logout", async (req, res) => {
+    if (req.sessionId) {
+      await destroySession(req.sessionId);
+    }
+    res.clearCookie("session");
+    res.json({ message: "Logged out successfully" });
+  });
+  
+  app.get("/api/auth/me", (req, res) => {
+    if (!req.user) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+    const { password, ...safeUser } = req.user;
+    res.json({ user: safeUser });
+  });
+
+  // Users (admin only for mutations)
+  app.get("/api/users", requireAuth, async (_req, res) => {
     const users = await storage.getAllUsers();
     const safeUsers = users.map(({ password, ...user }) => user);
     res.json(safeUsers);
   });
 
-  app.post("/api/users", async (req, res) => {
+  app.post("/api/users", requireAdmin, async (req, res) => {
     try {
       const userData = insertUserSchema.parse(req.body);
-      const user = await storage.createUser(userData);
+      const hashedPassword = await hashPassword(userData.password);
+      const user = await storage.createUser({ ...userData, password: hashedPassword });
       const { password, ...safeUser } = user;
       res.status(201).json(safeUser);
     } catch (error) {
@@ -46,7 +99,7 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/users/:id", async (req, res) => {
+  app.patch("/api/users/:id", requireAdmin, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       const updateUserSchema = insertUserSchema.omit({ password: true }).partial();
@@ -64,8 +117,26 @@ export async function registerRoutes(
       res.status(500).json({ message: "Failed to update user" });
     }
   });
+  
+  app.patch("/api/users/:id/password", requireAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { password: newPassword } = req.body;
+      if (!newPassword || newPassword.length < 4) {
+        return res.status(400).json({ message: "Password must be at least 4 characters" });
+      }
+      const hashedPassword = await hashPassword(newPassword);
+      const user = await storage.updateUser(id, { password: hashedPassword });
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      res.json({ message: "Password updated successfully" });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to update password" });
+    }
+  });
 
-  app.delete("/api/users/:id", async (req, res) => {
+  app.delete("/api/users/:id", requireAdmin, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       await storage.deleteUser(id);
@@ -75,20 +146,31 @@ export async function registerRoutes(
     }
   });
 
-  // Patients
-  app.get("/api/patients", async (_req, res) => {
-    const patients = await storage.getAllPatients();
-    res.json(patients);
+  // Patients - practitioners can only see/manage their own patients, admin/receptionist can see all
+  app.get("/api/patients", requireAuth, async (req, res) => {
+    if (req.user!.role === 'practitioner') {
+      const patients = await storage.getPatientsByPractitioner(req.user!.id);
+      res.json(patients);
+    } else {
+      const patients = await storage.getAllPatients();
+      res.json(patients);
+    }
   });
 
-  app.post("/api/patients", async (req, res) => {
+  app.post("/api/patients", requirePractitionerOrAdmin, async (req, res) => {
     try {
       const patientData = insertPatientSchema.parse(req.body);
       
+      // Force practitionerId to current user for practitioners
+      const dataWithPractitioner = {
+        ...patientData,
+        practitionerId: req.user!.role === 'practitioner' ? req.user!.id : patientData.practitionerId
+      };
+      
       // Check for duplicate date of birth
-      if (patientData.dateOfBirth) {
+      if (dataWithPractitioner.dateOfBirth) {
         const existingPatients = await storage.getAllPatients();
-        const duplicate = existingPatients.find(p => p.dateOfBirth === patientData.dateOfBirth);
+        const duplicate = existingPatients.find(p => p.dateOfBirth === dataWithPractitioner.dateOfBirth);
         if (duplicate) {
           return res.status(409).json({ 
             message: `A patient with this date of birth already exists: ${duplicate.firstName} ${duplicate.surname}` 
@@ -96,7 +178,7 @@ export async function registerRoutes(
         }
       }
       
-      const patient = await storage.createPatient(patientData);
+      const patient = await storage.createPatient(dataWithPractitioner);
       res.status(201).json(patient);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -106,9 +188,18 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/patients/:id", async (req, res) => {
+  app.patch("/api/patients/:id", requirePractitionerOrAdmin, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
+      
+      // Verify ownership for practitioners
+      if (req.user!.role === 'practitioner') {
+        const existingPatient = await storage.getPatient(id);
+        if (!existingPatient || existingPatient.practitionerId !== req.user!.id) {
+          return res.status(403).json({ message: "You can only edit your own patients" });
+        }
+      }
+      
       const patientData = insertPatientSchema.partial().parse(req.body);
       
       // Check for duplicate date of birth (excluding current patient)
@@ -135,9 +226,18 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/patients/:id", async (req, res) => {
+  app.delete("/api/patients/:id", requirePractitionerOrAdmin, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
+      
+      // Verify ownership for practitioners
+      if (req.user!.role === 'practitioner') {
+        const existingPatient = await storage.getPatient(id);
+        if (!existingPatient || existingPatient.practitionerId !== req.user!.id) {
+          return res.status(403).json({ message: "You can only delete your own patients" });
+        }
+      }
+      
       await storage.deletePatient(id);
       res.status(204).send();
     } catch (error) {
@@ -145,8 +245,8 @@ export async function registerRoutes(
     }
   });
 
-  // Billing Codes
-  app.get("/api/billing-codes", async (req, res) => {
+  // Billing Codes (read: all authenticated, write: admin only)
+  app.get("/api/billing-codes", requireAuth, async (req, res) => {
     const { type } = req.query;
     if (type && (type === 'medical_aid' || type === 'private')) {
       const codes = await storage.getBillingCodesByType(type);
@@ -157,7 +257,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/billing-codes", async (req, res) => {
+  app.post("/api/billing-codes", requireAdmin, async (req, res) => {
     try {
       const codeData = insertBillingCodeSchema.parse(req.body);
       const code = await storage.createBillingCode(codeData);
@@ -170,7 +270,7 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/billing-codes/:id", async (req, res) => {
+  app.patch("/api/billing-codes/:id", requireAdmin, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       const codeData = insertBillingCodeSchema.partial().parse(req.body);
@@ -187,7 +287,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/billing-codes/:id", async (req, res) => {
+  app.delete("/api/billing-codes/:id", requireAdmin, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       await storage.deleteBillingCode(id);
@@ -197,7 +297,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/billing-codes/import", upload.single('file'), async (req, res) => {
+  app.post("/api/billing-codes/import", requireAdmin, upload.single('file'), async (req, res) => {
     try {
       if (!req.file) {
         return res.status(400).json({ message: "No file uploaded" });
@@ -266,16 +366,26 @@ export async function registerRoutes(
     }
   });
 
-  // Sessions
-  app.get("/api/sessions", async (_req, res) => {
-    const sessions = await storage.getAllSessions();
-    res.json(sessions);
+  // Sessions - practitioners can only see/manage their own sessions
+  app.get("/api/sessions", requireAuth, async (req, res) => {
+    if (req.user!.role === 'practitioner') {
+      const sessions = await storage.getSessionsByPractitioner(req.user!.id);
+      res.json(sessions);
+    } else {
+      const sessions = await storage.getAllSessions();
+      res.json(sessions);
+    }
   });
 
-  app.post("/api/sessions", async (req, res) => {
+  app.post("/api/sessions", requirePractitionerOrAdmin, async (req, res) => {
     try {
       console.log("Session create request body:", JSON.stringify(req.body));
       const sessionData = insertSessionSchema.parse(req.body);
+      
+      // Force practitionerId to current user for practitioners
+      if (req.user!.role === 'practitioner') {
+        sessionData.practitionerId = req.user!.id;
+      }
       
       // Validate weekly billing cannot have future dates
       if (sessionData.billingFrequency === 'weekly') {
@@ -330,10 +440,10 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/sessions/:id", async (req, res) => {
+  app.patch("/api/sessions/:id", requireAuth, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      const userRole = req.headers['x-user-role'] as string;
+      const userRole = req.user!.role;
       
       // Check if session is invoiced - only admin can edit invoiced sessions
       const existingSession = await storage.getSession(id);
@@ -378,11 +488,11 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/sessions/:id/status", async (req, res) => {
+  app.patch("/api/sessions/:id/status", requireAuth, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       const { status } = req.body;
-      const userRole = req.headers['x-user-role'] as string;
+      const userRole = req.user!.role;
       
       if (!['captured', 'invoiced', 'paid'].includes(status)) {
         return res.status(400).json({ message: "Invalid status value" });
@@ -535,11 +645,10 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/sessions/:id/control-status", async (req, res) => {
+  app.patch("/api/sessions/:id/control-status", requireAdmin, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       const { controlStatus } = req.body;
-      const userRole = req.headers['x-user-role'] as string;
       
       if (!['awaiting_review', 'invoice_and_send'].includes(controlStatus)) {
         return res.status(400).json({ message: "Invalid control status value" });
@@ -555,13 +664,6 @@ export async function registerRoutes(
       if (existingSession.billingFrequency !== 'monthly') {
         return res.status(400).json({ message: "Control status can only be set for monthly sessions" });
       }
-      
-      // Only admin can change control status
-      if (userRole !== 'admin') {
-        return res.status(403).json({ 
-          message: "Only administrators can change control status." 
-        });
-      }
 
       const session = await storage.updateSessionControlStatus(id, controlStatus);
       if (!session) {
@@ -574,7 +676,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/sessions/:id", async (req, res) => {
+  app.delete("/api/sessions/:id", requirePractitionerOrAdmin, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       await storage.deleteSession(id);
@@ -584,13 +686,13 @@ export async function registerRoutes(
     }
   });
 
-  // Financial Periods
-  app.get("/api/financial-periods", async (_req, res) => {
+  // Financial Periods (read: all authenticated, write: admin only)
+  app.get("/api/financial-periods", requireAuth, async (_req, res) => {
     const periods = await storage.getAllFinancialPeriods();
     res.json(periods);
   });
 
-  app.post("/api/financial-periods", async (req, res) => {
+  app.post("/api/financial-periods", requireAdmin, async (req, res) => {
     try {
       const periodData = insertFinancialPeriodSchema.parse(req.body);
       const period = await storage.createFinancialPeriod(periodData);
@@ -603,7 +705,7 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/financial-periods/:id", async (req, res) => {
+  app.patch("/api/financial-periods/:id", requireAdmin, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       const periodData = insertFinancialPeriodSchema.partial().parse(req.body);
@@ -620,7 +722,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/financial-periods/:id", async (req, res) => {
+  app.delete("/api/financial-periods/:id", requireAdmin, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       await storage.deleteFinancialPeriod(id);
@@ -630,13 +732,13 @@ export async function registerRoutes(
     }
   });
 
-  // Population Groups
-  app.get("/api/population-groups", async (_req, res) => {
+  // Population Groups (read: all authenticated, write: admin only)
+  app.get("/api/population-groups", requireAuth, async (_req, res) => {
     const groups = await storage.getAllPopulationGroups();
     res.json(groups);
   });
 
-  app.post("/api/population-groups", async (req, res) => {
+  app.post("/api/population-groups", requireAdmin, async (req, res) => {
     try {
       const groupData = insertPopulationGroupSchema.parse(req.body);
       const group = await storage.createPopulationGroup(groupData);
@@ -649,7 +751,7 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/population-groups/:id", async (req, res) => {
+  app.patch("/api/population-groups/:id", requireAdmin, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       const groupData = insertPopulationGroupSchema.partial().parse(req.body);
@@ -666,7 +768,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/population-groups/:id", async (req, res) => {
+  app.delete("/api/population-groups/:id", requireAdmin, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       await storage.deletePopulationGroup(id);
@@ -677,7 +779,7 @@ export async function registerRoutes(
   });
 
   // Monthly billing rollover - copy previous month's sessions for active patients
-  app.post("/api/sessions/monthly-rollover", async (req, res) => {
+  app.post("/api/sessions/monthly-rollover", requirePractitionerOrAdmin, async (req, res) => {
     try {
       const { sourceMonth, targetMonth } = req.body;
       
@@ -757,7 +859,7 @@ export async function registerRoutes(
   });
 
   // Undo monthly rollover - delete all monthly sessions for a specific month
-  app.delete("/api/sessions/monthly-rollover/:month", async (req, res) => {
+  app.delete("/api/sessions/monthly-rollover/:month", requirePractitionerOrAdmin, async (req, res) => {
     try {
       const { month } = req.params;
       
@@ -789,7 +891,7 @@ export async function registerRoutes(
   });
 
   // Sessions with related data (enriched for frontend)
-  app.get("/api/sessions/enriched", async (_req, res) => {
+  app.get("/api/sessions/enriched", requireAuth, async (req, res) => {
     try {
       const [sessions, users, patients, codes, financialPeriods] = await Promise.all([
         storage.getAllSessions(),
@@ -851,7 +953,7 @@ export async function registerRoutes(
   });
 
   // Weekly Billing Statements
-  app.get("/api/weekly-billing-statements", async (_req, res) => {
+  app.get("/api/weekly-billing-statements", requireAuth, async (_req, res) => {
     try {
       const statements = await storage.getActiveWeeklyBillingStatements();
       res.json(statements);
@@ -860,7 +962,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/weekly-billing-statements/all", async (_req, res) => {
+  app.get("/api/weekly-billing-statements/all", requireAuth, async (_req, res) => {
     try {
       const statements = await storage.getAllWeeklyBillingStatements();
       res.json(statements);
@@ -869,7 +971,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/weekly-billing-statements", async (req, res) => {
+  app.post("/api/weekly-billing-statements", requireAuth, async (req, res) => {
     try {
       const statementData = insertWeeklyBillingStatementSchema.parse(req.body);
       const statement = await storage.createWeeklyBillingStatement(statementData);
@@ -882,7 +984,7 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/weekly-billing-statements/:id/status", async (req, res) => {
+  app.patch("/api/weekly-billing-statements/:id/status", requireAuth, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       const { status, statementTypeNote } = req.body;
@@ -918,7 +1020,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/weekly-billing-statements/:id", async (req, res) => {
+  app.delete("/api/weekly-billing-statements/:id", requireAuth, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       await storage.deleteWeeklyBillingStatement(id);
@@ -928,7 +1030,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/weekly-billing-statements/archived", async (_req, res) => {
+  app.get("/api/weekly-billing-statements/archived", requireAuth, async (_req, res) => {
     try {
       const statements = await storage.getArchivedWeeklyBillingStatements();
       res.json(statements);
@@ -938,7 +1040,7 @@ export async function registerRoutes(
   });
 
   // Monthly Billing Statements
-  app.get("/api/monthly-billing-statements", async (_req, res) => {
+  app.get("/api/monthly-billing-statements", requireAuth, async (_req, res) => {
     try {
       const statements = await storage.getActiveMonthlyBillingStatements();
       res.json(statements);
@@ -947,7 +1049,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/monthly-billing-statements/all", async (_req, res) => {
+  app.get("/api/monthly-billing-statements/all", requireAuth, async (_req, res) => {
     try {
       const statements = await storage.getAllMonthlyBillingStatements();
       res.json(statements);
@@ -956,7 +1058,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/monthly-billing-statements/archived", async (_req, res) => {
+  app.get("/api/monthly-billing-statements/archived", requireAuth, async (_req, res) => {
     try {
       const statements = await storage.getArchivedMonthlyBillingStatements();
       res.json(statements);
@@ -965,7 +1067,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/monthly-billing-statements", async (req, res) => {
+  app.post("/api/monthly-billing-statements", requireAuth, async (req, res) => {
     try {
       const statementData = insertMonthlyBillingStatementSchema.parse(req.body);
       const statement = await storage.createMonthlyBillingStatement(statementData);
@@ -978,7 +1080,7 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/monthly-billing-statements/:id/status", async (req, res) => {
+  app.patch("/api/monthly-billing-statements/:id/status", requireAuth, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       const { status, statementTypeNote } = req.body;
@@ -1014,7 +1116,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/monthly-billing-statements/:id", async (req, res) => {
+  app.delete("/api/monthly-billing-statements/:id", requireAuth, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       await storage.deleteMonthlyBillingStatement(id);

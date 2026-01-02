@@ -38,6 +38,13 @@ export const users = pgTable("users", {
   role: userRoleEnum("role").notNull().default('practitioner'),
 });
 
+export const authSessions = pgTable("auth_sessions", {
+  id: text("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  expiresAt: timestamp("expires_at").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 export const usersRelations = relations(users, ({ many }) => ({
   sessions: many(sessions),
 }));
@@ -176,6 +183,12 @@ export const insertFinancialPeriodSchema = createInsertSchema(financialPeriods).
 export const insertPopulationGroupSchema = createInsertSchema(populationGroups).omit({ id: true });
 export const insertWeeklyBillingStatementSchema = createInsertSchema(weeklyBillingStatements).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertMonthlyBillingStatementSchema = createInsertSchema(monthlyBillingStatements).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertAuthSessionSchema = createInsertSchema(authSessions).omit({ createdAt: true });
+
+export const loginSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(1),
+});
 
 // Types
 export type User = typeof users.$inferSelect;
@@ -201,3 +214,7 @@ export type InsertWeeklyBillingStatement = z.infer<typeof insertWeeklyBillingSta
 
 export type MonthlyBillingStatement = typeof monthlyBillingStatements.$inferSelect;
 export type InsertMonthlyBillingStatement = z.infer<typeof insertMonthlyBillingStatementSchema>;
+
+export type AuthSession = typeof authSessions.$inferSelect;
+export type InsertAuthSession = z.infer<typeof insertAuthSessionSchema>;
+export type LoginCredentials = z.infer<typeof loginSchema>;

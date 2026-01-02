@@ -7,6 +7,7 @@ import {
   populationGroups,
   weeklyBillingStatements,
   monthlyBillingStatements,
+  authSessions,
   type User,
   type InsertUser,
   type Patient,
@@ -23,9 +24,11 @@ import {
   type InsertWeeklyBillingStatement,
   type MonthlyBillingStatement,
   type InsertMonthlyBillingStatement,
+  type AuthSession,
+  type InsertAuthSession,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, and, ne } from "drizzle-orm";
+import { eq, desc, and, ne, lt } from "drizzle-orm";
 
 export interface IStorage {
   // Users
@@ -94,6 +97,15 @@ export interface IStorage {
   updateMonthlyBillingStatement(id: number, data: Partial<InsertMonthlyBillingStatement>): Promise<MonthlyBillingStatement | undefined>;
   updateMonthlyBillingStatementStatus(id: number, status: 'awaiting_review' | 'ready_to_send' | 'statement_sent' | 'archived', statementTypeNote?: string, sentDate?: string): Promise<MonthlyBillingStatement | undefined>;
   deleteMonthlyBillingStatement(id: number): Promise<boolean>;
+
+  // Auth Sessions
+  createAuthSession(session: InsertAuthSession): Promise<AuthSession>;
+  getAuthSession(id: string): Promise<AuthSession | undefined>;
+  deleteAuthSession(id: string): Promise<boolean>;
+  deleteExpiredAuthSessions(): Promise<void>;
+
+  // Practitioner-scoped queries
+  getSessionsByPractitioner(practitionerId: number): Promise<Session[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -397,6 +409,31 @@ export class DatabaseStorage implements IStorage {
   async deleteMonthlyBillingStatement(id: number): Promise<boolean> {
     await db.delete(monthlyBillingStatements).where(eq(monthlyBillingStatements.id, id));
     return true;
+  }
+
+  // Auth Sessions
+  async createAuthSession(session: InsertAuthSession): Promise<AuthSession> {
+    const [authSession] = await db.insert(authSessions).values(session).returning();
+    return authSession;
+  }
+
+  async getAuthSession(id: string): Promise<AuthSession | undefined> {
+    const [session] = await db.select().from(authSessions).where(eq(authSessions.id, id));
+    return session || undefined;
+  }
+
+  async deleteAuthSession(id: string): Promise<boolean> {
+    await db.delete(authSessions).where(eq(authSessions.id, id));
+    return true;
+  }
+
+  async deleteExpiredAuthSessions(): Promise<void> {
+    await db.delete(authSessions).where(lt(authSessions.expiresAt, new Date()));
+  }
+
+  // Practitioner-scoped queries
+  async getSessionsByPractitioner(practitionerId: number): Promise<Session[]> {
+    return await db.select().from(sessions).where(eq(sessions.practitionerId, practitionerId));
   }
 }
 
