@@ -927,7 +927,7 @@ export default function SessionsPage() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All Practitioners</SelectItem>
-                      {users.map(u => (
+                      {users.filter(u => u.role === 'practitioner' || u.role === 'admin').map(u => (
                         <SelectItem key={u.id} value={u.id.toString()}>{u.name}</SelectItem>
                       ))}
                     </SelectContent>
@@ -1164,7 +1164,7 @@ export default function SessionsPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Practitioners</SelectItem>
-                  {users.map(u => (
+                  {users.filter(u => u.role === 'practitioner' || u.role === 'admin').map(u => (
                     <SelectItem key={u.id} value={u.id.toString()}>{u.name}</SelectItem>
                   ))}
                 </SelectContent>
@@ -1336,7 +1336,7 @@ export default function SessionsPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Practitioners</SelectItem>
-                  {users.map(u => (
+                  {users.filter(u => u.role === 'practitioner' || u.role === 'admin').map(u => (
                     <SelectItem key={u.id} value={u.id.toString()}>{u.name}</SelectItem>
                   ))}
                 </SelectContent>
@@ -1506,7 +1506,7 @@ export default function SessionsPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Practitioners</SelectItem>
-                  {users.map(u => (
+                  {users.filter(u => u.role === 'practitioner' || u.role === 'admin').map(u => (
                     <SelectItem key={u.id} value={u.id.toString()}>{u.name}</SelectItem>
                   ))}
                 </SelectContent>
