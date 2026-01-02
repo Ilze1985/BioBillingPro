@@ -746,7 +746,8 @@ export async function registerRoutes(
           totalPrice: totalPrice,
           finalPrice: finalPrice,
           financialPeriod: matchingPeriod?.name || null,
-          financialPeriodId: matchingPeriod?.id || null
+          financialPeriodId: matchingPeriod?.id || null,
+          controlStatus: (session as any).controlStatus || 'awaiting_review'
         };
       });
 

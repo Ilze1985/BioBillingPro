@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
-import { useCreateSession, useSessions, usePatients, useBillingCodesByType, useUsers, useFinancialPeriods, useUpdateSessionStatus, useWeeklyBillingStatements, useCreateWeeklyBillingStatement, useUpdateWeeklyBillingStatementStatus, useMonthlyBillingStatements, useUpdateMonthlyBillingStatementStatus, useArchivedWeeklyBillingStatements, useArchivedMonthlyBillingStatements, BillingType, StatementStatus } from "@/lib/api";
+import { useCreateSession, useSessions, usePatients, useBillingCodesByType, useUsers, useFinancialPeriods, useUpdateSessionStatus, useUpdateSessionControlStatus, useWeeklyBillingStatements, useCreateWeeklyBillingStatement, useUpdateWeeklyBillingStatementStatus, useMonthlyBillingStatements, useUpdateMonthlyBillingStatementStatus, useArchivedWeeklyBillingStatements, useArchivedMonthlyBillingStatements, BillingType, StatementStatus, ControlStatus } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -40,6 +40,7 @@ export default function SessionsPage() {
   const { data: archivedMonthlyStatements = [] } = useArchivedMonthlyBillingStatements();
   const createSessionMutation = useCreateSession();
   const updateStatusMutation = useUpdateSessionStatus();
+  const updateControlStatusMutation = useUpdateSessionControlStatus();
   const createStatementMutation = useCreateWeeklyBillingStatement();
   const updateStatementStatusMutation = useUpdateWeeklyBillingStatementStatus();
   const updateMonthlyStatementStatusMutation = useUpdateMonthlyBillingStatementStatus();
@@ -937,6 +938,9 @@ export default function SessionsPage() {
                   <th className="h-10 px-3 text-left align-middle text-xs font-medium text-green-600">Cash Disc.</th>
                   <th className="h-10 px-3 text-right align-middle text-xs font-medium text-muted-foreground">Total</th>
                   {canMarkAsInvoiced && (
+                    <th className="h-10 px-3 text-center align-middle text-xs font-medium text-muted-foreground">Control</th>
+                  )}
+                  {canMarkAsInvoiced && (
                     <th className="h-10 px-3 text-center align-middle text-xs font-medium text-muted-foreground">Actions</th>
                   )}
                 </tr>
@@ -1012,6 +1016,53 @@ export default function SessionsPage() {
                     <td className="p-3 align-middle text-right text-xs font-bold text-primary">
                       R {session.finalPrice?.toFixed(2) || "0.00"}
                     </td>
+                    {canMarkAsInvoiced && (
+                      <td className="p-3 align-middle text-center">
+                        {session.billingFrequency === 'monthly' ? (
+                          <Select
+                            value={session.controlStatus || 'awaiting_review'}
+                            onValueChange={(value: ControlStatus) => {
+                              updateControlStatusMutation.mutate({
+                                id: session.id,
+                                controlStatus: value,
+                                userRole: currentUserRole
+                              }, {
+                                onSuccess: () => {
+                                  toast({
+                                    title: "Control Updated",
+                                    description: `Session control status updated to ${value === 'invoice_and_send' ? 'Invoice and send' : 'Awaiting review'}.`,
+                                  });
+                                },
+                                onError: (error: Error) => {
+                                  toast({
+                                    title: "Error",
+                                    description: error.message,
+                                    variant: "destructive",
+                                  });
+                                }
+                              });
+                            }}
+                            disabled={updateControlStatusMutation.isPending || (isReceptionist && session.controlStatus !== 'invoice_and_send')}
+                          >
+                            <SelectTrigger className="h-7 w-[120px] text-[10px]" data-testid={`select-control-${session.id}`}>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="awaiting_review" className="text-xs">Awaiting review</SelectItem>
+                              <SelectItem 
+                                value="invoice_and_send" 
+                                className="text-xs"
+                                disabled={isReceptionist}
+                              >
+                                Invoice and send
+                              </SelectItem>
+                            </SelectContent>
+                          </Select>
+                        ) : (
+                          <span className="text-[10px] text-muted-foreground">-</span>
+                        )}
+                      </td>
+                    )}
                     {canMarkAsInvoiced && (
                       <td className="p-3 align-middle text-center">
                         {session.status === 'captured' ? (

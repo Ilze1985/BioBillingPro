@@ -35,6 +35,8 @@ export interface BillingCode {
   billingFrequency: 'weekly' | 'monthly';
 }
 
+export type ControlStatus = 'awaiting_review' | 'invoice_and_send';
+
 export interface Session {
   id: number;
   practitionerId: number;
@@ -47,6 +49,7 @@ export interface Session {
   notes: string | null;
   discountAmount: number | null;
   status: 'captured' | 'invoiced' | 'paid';
+  controlStatus?: ControlStatus | null;
   createdAt: Date | null;
 }
 
@@ -253,6 +256,22 @@ async function updateSessionStatus(id: number, status: string, userRole: string)
   if (!res.ok) {
     const error = await res.json();
     throw new Error(error.message || 'Failed to update session status');
+  }
+  return res.json();
+}
+
+async function updateSessionControlStatus(id: number, controlStatus: ControlStatus, userRole: string): Promise<Session> {
+  const res = await fetch(`/api/sessions/${id}/control-status`, {
+    method: 'PATCH',
+    headers: { 
+      'Content-Type': 'application/json',
+      'X-User-Role': userRole
+    },
+    body: JSON.stringify({ controlStatus })
+  });
+  if (!res.ok) {
+    const error = await res.json();
+    throw new Error(error.message || 'Failed to update session control status');
   }
   return res.json();
 }
@@ -480,6 +499,17 @@ export function useUpdateSessionStatus() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sessions'] });
       queryClient.invalidateQueries({ queryKey: ['weeklyBillingStatements'] });
+    },
+  });
+}
+
+export function useUpdateSessionControlStatus() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, controlStatus, userRole }: { id: number; controlStatus: ControlStatus; userRole: string }) => 
+      updateSessionControlStatus(id, controlStatus, userRole),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['sessions'] });
     },
   });
 }
