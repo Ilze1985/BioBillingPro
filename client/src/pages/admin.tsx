@@ -1,12 +1,12 @@
 import { useState, useRef } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { 
-  useSessions, useUsers, useBillingCodes, usePatients, useFinancialPeriods,
-  useDeleteUser, useDeletePatient, useDeleteBillingCode, useDeleteSession, useDeleteFinancialPeriod,
-  useUpdateUser, useUpdatePatient, useUpdateBillingCode, useUpdateFinancialPeriod,
-  useCreateUser, useCreatePatient, useCreateBillingCode, useCreateFinancialPeriod,
+  useSessions, useUsers, useBillingCodes, usePatients, useFinancialPeriods, usePopulationGroups,
+  useDeleteUser, useDeletePatient, useDeleteBillingCode, useDeleteSession, useDeleteFinancialPeriod, useDeletePopulationGroup,
+  useUpdateUser, useUpdatePatient, useUpdateBillingCode, useUpdateFinancialPeriod, useUpdatePopulationGroup,
+  useCreateUser, useCreatePatient, useCreateBillingCode, useCreateFinancialPeriod, useCreatePopulationGroup,
   useImportBillingCodes,
-  type User, type Patient, type BillingCode, type BillingType, type FinancialPeriod
+  type User, type Patient, type BillingCode, type BillingType, type FinancialPeriod, type PopulationGroup
 } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -42,20 +42,24 @@ export default function AdminPage() {
   const { data: billingCodes = [], isLoading: loadingCodes } = useBillingCodes();
   const { data: patients = [], isLoading: loadingPatients } = usePatients();
   const { data: financialPeriods = [], isLoading: loadingPeriods } = useFinancialPeriods();
+  const { data: populationGroups = [], isLoading: loadingGroups } = usePopulationGroups();
 
   const deleteUserMutation = useDeleteUser();
   const deletePatientMutation = useDeletePatient();
   const deleteBillingCodeMutation = useDeleteBillingCode();
   const deleteSessionMutation = useDeleteSession();
   const deleteFinancialPeriodMutation = useDeleteFinancialPeriod();
+  const deletePopulationGroupMutation = useDeletePopulationGroup();
   const updateUserMutation = useUpdateUser();
   const updatePatientMutation = useUpdatePatient();
   const updateBillingCodeMutation = useUpdateBillingCode();
   const updateFinancialPeriodMutation = useUpdateFinancialPeriod();
+  const updatePopulationGroupMutation = useUpdatePopulationGroup();
   const createUserMutation = useCreateUser();
   const createPatientMutation = useCreatePatient();
   const createBillingCodeMutation = useCreateBillingCode();
   const createFinancialPeriodMutation = useCreateFinancialPeriod();
+  const createPopulationGroupMutation = useCreatePopulationGroup();
   const importBillingCodesMutation = useImportBillingCodes();
 
   const { toast } = useToast();
@@ -66,14 +70,16 @@ export default function AdminPage() {
   const [editPatientDialog, setEditPatientDialog] = useState<Patient | null>(null);
   const [editCodeDialog, setEditCodeDialog] = useState<BillingCode | null>(null);
   const [editPeriodDialog, setEditPeriodDialog] = useState<FinancialPeriod | null>(null);
+  const [editGroupDialog, setEditGroupDialog] = useState<PopulationGroup | null>(null);
   const [newUserDialog, setNewUserDialog] = useState(false);
   const [newPatientDialog, setNewPatientDialog] = useState(false);
   const [newCodeDialog, setNewCodeDialog] = useState(false);
   const [newPeriodDialog, setNewPeriodDialog] = useState(false);
+  const [newGroupDialog, setNewGroupDialog] = useState(false);
 
   const [formData, setFormData] = useState<Record<string, string>>({});
 
-  const isLoading = loadingSessions || loadingUsers || loadingCodes || loadingPatients || loadingPeriods;
+  const isLoading = loadingSessions || loadingUsers || loadingCodes || loadingPatients || loadingPeriods || loadingGroups;
 
   const handleDelete = async () => {
     if (!deleteDialog) return;
@@ -88,6 +94,8 @@ export default function AdminPage() {
         await deleteSessionMutation.mutateAsync(deleteDialog.id);
       } else if (deleteDialog.type === 'period') {
         await deleteFinancialPeriodMutation.mutateAsync(deleteDialog.id);
+      } else if (deleteDialog.type === 'group') {
+        await deletePopulationGroupMutation.mutateAsync(deleteDialog.id);
       }
       toast({ title: "Deleted", description: `${deleteDialog.name} has been deleted.` });
     } catch {
@@ -241,6 +249,37 @@ export default function AdminPage() {
     }
   };
 
+  const handleUpdateGroup = async () => {
+    if (!editGroupDialog) return;
+    try {
+      await updatePopulationGroupMutation.mutateAsync({
+        id: editGroupDialog.id,
+        data: { 
+          name: formData.name,
+          description: formData.description || null
+        }
+      });
+      toast({ title: "Updated", description: "Population group has been updated." });
+      setEditGroupDialog(null);
+    } catch {
+      toast({ title: "Error", description: "Failed to update population group.", variant: "destructive" });
+    }
+  };
+
+  const handleCreateGroup = async () => {
+    try {
+      await createPopulationGroupMutation.mutateAsync({
+        name: formData.name,
+        description: formData.description || null
+      });
+      toast({ title: "Created", description: "Population group has been created." });
+      setNewGroupDialog(false);
+      setFormData({});
+    } catch {
+      toast({ title: "Error", description: "Failed to create population group.", variant: "destructive" });
+    }
+  };
+
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -296,6 +335,7 @@ export default function AdminPage() {
           <TabsTrigger value="staff" data-testid="tab-staff">Staff</TabsTrigger>
           <TabsTrigger value="codes" data-testid="tab-codes">Billing Codes</TabsTrigger>
           <TabsTrigger value="periods" data-testid="tab-periods">Financial Periods</TabsTrigger>
+          <TabsTrigger value="groups" data-testid="tab-groups">Population Groups</TabsTrigger>
         </TabsList>
         
         <TabsContent value="all-sessions" className="space-y-4">
@@ -721,6 +761,68 @@ export default function AdminPage() {
                             className="h-8 w-8 text-destructive hover:text-destructive"
                             onClick={() => setDeleteDialog({ type: 'period', id: period.id, name: period.name })}
                             data-testid={`button-delete-period-${period.id}`}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="groups" className="space-y-4">
+          <Card className="shadow-sm">
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle>Population Groups</CardTitle>
+                <CardDescription>Manage population group categories for patients.</CardDescription>
+              </div>
+              <Button className="gap-2" onClick={() => { setFormData({}); setNewGroupDialog(true); }} data-testid="button-add-group">
+                <Plus className="h-4 w-4" />
+                Add Group
+              </Button>
+            </CardHeader>
+            <CardContent>
+              <div className="rounded-md border">
+                <table className="w-full caption-bottom text-sm">
+                  <thead className="[&_tr]:border-b">
+                    <tr className="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted">
+                      <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Name</th>
+                      <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Description</th>
+                      <th className="h-12 px-4 text-right align-middle font-medium text-muted-foreground">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="[&_tr:last-child]:border-0">
+                    {populationGroups.map((group) => (
+                      <tr key={group.id} className="border-b transition-colors hover:bg-muted/50" data-testid={`row-group-${group.id}`}>
+                        <td className="p-4 align-middle font-medium">{group.name}</td>
+                        <td className="p-4 align-middle text-muted-foreground">{group.description || '-'}</td>
+                        <td className="p-4 align-middle text-right">
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-8 w-8"
+                            onClick={() => { 
+                              setFormData({ 
+                                name: group.name,
+                                description: group.description || ''
+                              }); 
+                              setEditGroupDialog(group); 
+                            }}
+                            data-testid={`button-edit-group-${group.id}`}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-8 w-8 text-destructive hover:text-destructive"
+                            onClick={() => setDeleteDialog({ type: 'group', id: group.id, name: group.name })}
+                            data-testid={`button-delete-group-${group.id}`}
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
@@ -1160,6 +1262,52 @@ export default function AdminPage() {
           <DialogFooter>
             <DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose>
             <Button onClick={handleCreatePeriod} data-testid="button-create-period">Create Period</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!editGroupDialog} onOpenChange={() => setEditGroupDialog(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Population Group</DialogTitle>
+            <DialogDescription>Update the population group details.</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="name">Group Name</Label>
+              <Input id="name" value={formData.name || ''} onChange={(e) => setFormData({ ...formData, name: e.target.value })} placeholder="e.g. White" data-testid="input-edit-group-name" />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="description">Description (optional)</Label>
+              <Input id="description" value={formData.description || ''} onChange={(e) => setFormData({ ...formData, description: e.target.value })} placeholder="Optional description" data-testid="input-edit-group-description" />
+            </div>
+          </div>
+          <DialogFooter>
+            <DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose>
+            <Button onClick={handleUpdateGroup} data-testid="button-save-group">Save Changes</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={newGroupDialog} onOpenChange={setNewGroupDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add Population Group</DialogTitle>
+            <DialogDescription>Create a new population group category.</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="name">Group Name</Label>
+              <Input id="name" value={formData.name || ''} onChange={(e) => setFormData({ ...formData, name: e.target.value })} placeholder="e.g. White" data-testid="input-new-group-name" />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="description">Description (optional)</Label>
+              <Input id="description" value={formData.description || ''} onChange={(e) => setFormData({ ...formData, description: e.target.value })} placeholder="Optional description" data-testid="input-new-group-description" />
+            </div>
+          </div>
+          <DialogFooter>
+            <DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose>
+            <Button onClick={handleCreateGroup} data-testid="button-create-group">Create Group</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
