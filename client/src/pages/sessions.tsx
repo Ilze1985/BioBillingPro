@@ -512,20 +512,18 @@ export default function SessionsPage() {
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="patient">Patient</Label>
+                <Input
+                  placeholder="Search patients by surname..."
+                  value={patientSearchTerm}
+                  onChange={(e) => setPatientSearchTerm(e.target.value)}
+                  className="h-9 mb-1"
+                  data-testid="input-patient-search"
+                />
                 <Select value={selectedPatientId} onValueChange={setSelectedPatientId}>
                   <SelectTrigger id="patient" data-testid="select-patient">
                     <SelectValue placeholder="Select patient" />
                   </SelectTrigger>
                   <SelectContent>
-                    <div className="px-2 pb-2">
-                      <Input
-                        placeholder="Search patients..."
-                        value={patientSearchTerm}
-                        onChange={(e) => setPatientSearchTerm(e.target.value)}
-                        className="h-8"
-                        data-testid="input-patient-search"
-                      />
-                    </div>
                     {patients
                       .filter(p => p.surname.toLowerCase().includes(patientSearchTerm.toLowerCase()))
                       .map(p => (
