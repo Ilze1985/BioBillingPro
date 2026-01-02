@@ -134,6 +134,7 @@ export const monthlyBillingStatements = pgTable("monthly_billing_statements", {
   status: statementStatusEnum("status").notNull().default('awaiting_review'),
   statementTypeNote: text("statement_type_note"),
   totalAmount: integer("total_amount").default(0),
+  sentDate: text("sent_date"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

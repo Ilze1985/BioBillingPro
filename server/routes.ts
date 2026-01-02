@@ -476,6 +476,58 @@ export async function registerRoutes(
         }
       }
       
+      // Auto-create monthly billing statement when marking monthly session as invoiced
+      if (status === 'invoiced' && session.billingFrequency === 'monthly') {
+        try {
+          // Check if a statement already exists for this session
+          const existingStatements = await storage.getAllMonthlyBillingStatements();
+          const existingStatement = existingStatements.find(s => s.sessionId === session.id);
+          
+          // Calculate session total with proper discount handling
+          const billingCodes = await storage.getAllBillingCodes();
+          const baseTotal = (session.billingCodeIds || []).reduce((sum, codeId) => {
+            const code = billingCodes.find(c => c.id === codeId);
+            return sum + (code?.price || 0);
+          }, 0);
+          
+          // Apply discount
+          const afterDiscount = baseTotal - (session.discountAmount || 0);
+          
+          // Apply cash discount for private_cash (10% rounded to nearest R10)
+          let sessionTotal = afterDiscount;
+          if (session.billingType === 'private_cash') {
+            sessionTotal = Math.round(afterDiscount * 0.9 / 10) * 10;
+          }
+          
+          // Find the financial period based on session date
+          const allPeriods = await storage.getAllFinancialPeriods();
+          const sessionDateStr = session.date;
+          const period = allPeriods.find(p => {
+            return sessionDateStr >= p.startDate && sessionDateStr <= p.endDate;
+          });
+          
+          if (!existingStatement) {
+            // Create new monthly statement
+            await storage.createMonthlyBillingStatement({
+              patientId: session.patientId,
+              practitionerId: session.practitionerId,
+              financialPeriodId: period?.id || null,
+              sessionId: session.id,
+              status: 'ready_to_send',
+              totalAmount: sessionTotal
+            });
+          } else {
+            // Update existing statement
+            await storage.updateMonthlyBillingStatement(existingStatement.id, {
+              status: 'ready_to_send',
+              totalAmount: sessionTotal
+            });
+          }
+        } catch (statementError) {
+          console.error("Failed to create/update monthly billing statement:", statementError);
+        }
+      }
+      
       res.json(session);
     } catch (error) {
       res.status(500).json({ message: "Failed to update session status" });
@@ -900,9 +952,9 @@ export async function registerRoutes(
         });
       }
 
-      // If marking as statement_sent, also set status to archived (same as weekly)
-      const finalStatus = status === 'statement_sent' ? 'archived' : status;
-      const statement = await storage.updateMonthlyBillingStatementStatus(id, finalStatus, statementTypeNote);
+      // If marking as statement_sent, set the sent date to today
+      const sentDate = status === 'statement_sent' ? new Date().toISOString().split('T')[0] : undefined;
+      const statement = await storage.updateMonthlyBillingStatementStatus(id, status, statementTypeNote, sentDate);
       if (!statement) {
         return res.status(404).json({ message: "Statement not found" });
       }

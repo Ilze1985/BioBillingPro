@@ -83,7 +83,7 @@ export interface IStorage {
   getArchivedMonthlyBillingStatements(): Promise<MonthlyBillingStatement[]>;
   createMonthlyBillingStatement(statement: InsertMonthlyBillingStatement): Promise<MonthlyBillingStatement>;
   updateMonthlyBillingStatement(id: number, data: Partial<InsertMonthlyBillingStatement>): Promise<MonthlyBillingStatement | undefined>;
-  updateMonthlyBillingStatementStatus(id: number, status: 'awaiting_review' | 'ready_to_send' | 'statement_sent' | 'archived', statementTypeNote?: string): Promise<MonthlyBillingStatement | undefined>;
+  updateMonthlyBillingStatementStatus(id: number, status: 'awaiting_review' | 'ready_to_send' | 'statement_sent' | 'archived', statementTypeNote?: string, sentDate?: string): Promise<MonthlyBillingStatement | undefined>;
   deleteMonthlyBillingStatement(id: number): Promise<boolean>;
 }
 
@@ -344,11 +344,15 @@ export class DatabaseStorage implements IStorage {
   async updateMonthlyBillingStatementStatus(
     id: number, 
     status: 'awaiting_review' | 'ready_to_send' | 'statement_sent' | 'archived',
-    statementTypeNote?: string
+    statementTypeNote?: string,
+    sentDate?: string
   ): Promise<MonthlyBillingStatement | undefined> {
     const updateData: Partial<MonthlyBillingStatement> = { status, updatedAt: new Date() };
     if (statementTypeNote !== undefined) {
       updateData.statementTypeNote = statementTypeNote;
+    }
+    if (sentDate !== undefined) {
+      updateData.sentDate = sentDate;
     }
     const [statement] = await db.update(monthlyBillingStatements)
       .set(updateData)

@@ -1266,7 +1266,7 @@ export default function SessionsPage() {
                             </TooltipProvider>
                           )}
                           {statement.status === 'statement_sent' && (
-                            <span className="text-xs text-green-600">Archived</span>
+                            <span className="text-xs text-green-600">Sent</span>
                           )}
                         </div>
                       </td>
@@ -1434,7 +1434,9 @@ export default function SessionsPage() {
                             </TooltipProvider>
                           )}
                           {statement.status === 'statement_sent' && (
-                            <span className="text-xs text-green-600">Archived</span>
+                            <span className="text-xs text-green-600">
+                              Sent {statement.sentDate ? `(${statement.sentDate})` : ''}
+                            </span>
                           )}
                         </div>
                       </td>
