@@ -24,6 +24,12 @@ export const financialPeriods = pgTable("financial_periods", {
   endDate: text("end_date").notNull(),
 });
 
+export const populationGroups = pgTable("population_groups", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull().unique(),
+  description: text("description"),
+});
+
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
@@ -167,6 +173,7 @@ export const insertSessionSchema = createInsertSchema(sessions).omit({ id: true,
   discountAmount: z.number().min(0).optional().default(0)
 });
 export const insertFinancialPeriodSchema = createInsertSchema(financialPeriods).omit({ id: true });
+export const insertPopulationGroupSchema = createInsertSchema(populationGroups).omit({ id: true });
 export const insertWeeklyBillingStatementSchema = createInsertSchema(weeklyBillingStatements).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertMonthlyBillingStatementSchema = createInsertSchema(monthlyBillingStatements).omit({ id: true, createdAt: true, updatedAt: true });
 
@@ -185,6 +192,9 @@ export type InsertSession = z.infer<typeof insertSessionSchema>;
 
 export type FinancialPeriod = typeof financialPeriods.$inferSelect;
 export type InsertFinancialPeriod = z.infer<typeof insertFinancialPeriodSchema>;
+
+export type PopulationGroup = typeof populationGroups.$inferSelect;
+export type InsertPopulationGroup = z.infer<typeof insertPopulationGroupSchema>;
 
 export type WeeklyBillingStatement = typeof weeklyBillingStatements.$inferSelect;
 export type InsertWeeklyBillingStatement = z.infer<typeof insertWeeklyBillingStatementSchema>;

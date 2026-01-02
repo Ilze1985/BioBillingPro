@@ -4,6 +4,7 @@ import {
   billingCodes,
   sessions,
   financialPeriods,
+  populationGroups,
   weeklyBillingStatements,
   monthlyBillingStatements,
   type User,
@@ -16,6 +17,8 @@ import {
   type InsertSession,
   type FinancialPeriod,
   type InsertFinancialPeriod,
+  type PopulationGroup,
+  type InsertPopulationGroup,
   type WeeklyBillingStatement,
   type InsertWeeklyBillingStatement,
   type MonthlyBillingStatement,
@@ -65,6 +68,12 @@ export interface IStorage {
   createFinancialPeriod(period: InsertFinancialPeriod): Promise<FinancialPeriod>;
   updateFinancialPeriod(id: number, data: Partial<InsertFinancialPeriod>): Promise<FinancialPeriod | undefined>;
   deleteFinancialPeriod(id: number): Promise<boolean>;
+
+  // Population Groups
+  getAllPopulationGroups(): Promise<PopulationGroup[]>;
+  createPopulationGroup(group: InsertPopulationGroup): Promise<PopulationGroup>;
+  updatePopulationGroup(id: number, data: Partial<InsertPopulationGroup>): Promise<PopulationGroup | undefined>;
+  deletePopulationGroup(id: number): Promise<boolean>;
 
   // Weekly Billing Statements
   getWeeklyBillingStatement(id: number): Promise<WeeklyBillingStatement | undefined>;
@@ -247,6 +256,26 @@ export class DatabaseStorage implements IStorage {
 
   async deleteFinancialPeriod(id: number): Promise<boolean> {
     await db.delete(financialPeriods).where(eq(financialPeriods.id, id));
+    return true;
+  }
+
+  // Population Groups
+  async getAllPopulationGroups(): Promise<PopulationGroup[]> {
+    return await db.select().from(populationGroups);
+  }
+
+  async createPopulationGroup(group: InsertPopulationGroup): Promise<PopulationGroup> {
+    const [newGroup] = await db.insert(populationGroups).values(group).returning();
+    return newGroup;
+  }
+
+  async updatePopulationGroup(id: number, data: Partial<InsertPopulationGroup>): Promise<PopulationGroup | undefined> {
+    const [group] = await db.update(populationGroups).set(data).where(eq(populationGroups.id, id)).returning();
+    return group || undefined;
+  }
+
+  async deletePopulationGroup(id: number): Promise<boolean> {
+    await db.delete(populationGroups).where(eq(populationGroups.id, id));
     return true;
   }
 
