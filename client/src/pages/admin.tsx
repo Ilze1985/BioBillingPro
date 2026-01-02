@@ -107,12 +107,21 @@ export default function AdminPage() {
   const handleUpdateUser = async () => {
     if (!editUserDialog) return;
     try {
+      const updateData: Partial<User> & { password?: string } = {
+        name: formData.name,
+        email: formData.email,
+        role: formData.role as 'admin' | 'practitioner' | 'receptionist'
+      };
+      if (formData.password && formData.password.trim()) {
+        updateData.password = formData.password;
+      }
       await updateUserMutation.mutateAsync({
         id: editUserDialog.id,
-        data: { name: formData.name, email: formData.email, role: formData.role as 'admin' | 'practitioner' }
+        data: updateData
       });
       toast({ title: "Updated", description: "User has been updated." });
       setEditUserDialog(null);
+      setFormData({});
     } catch {
       toast({ title: "Error", description: "Failed to update user.", variant: "destructive" });
     }
@@ -879,6 +888,10 @@ export default function AdminPage() {
                   <SelectItem value="receptionist">Receptionist</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="edit-password">New Password (leave blank to keep current)</Label>
+              <Input id="edit-password" type="password" value={formData.password || ''} onChange={(e) => setFormData({ ...formData, password: e.target.value })} placeholder="Enter new password" data-testid="input-edit-user-password" />
             </div>
           </div>
           <DialogFooter>

@@ -102,8 +102,16 @@ export async function registerRoutes(
   app.patch("/api/users/:id", requireAdmin, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      const updateUserSchema = insertUserSchema.omit({ password: true }).partial();
+      const updateUserSchema = insertUserSchema.partial();
       const userData = updateUserSchema.parse(req.body);
+      
+      // Hash password if provided
+      if (userData.password && userData.password.trim()) {
+        userData.password = await hashPassword(userData.password);
+      } else {
+        delete userData.password;
+      }
+      
       const user = await storage.updateUser(id, userData);
       if (!user) {
         return res.status(404).json({ message: "User not found" });
