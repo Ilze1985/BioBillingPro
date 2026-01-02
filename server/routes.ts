@@ -503,17 +503,10 @@ export async function registerRoutes(
         return res.status(400).json({ message: "Control status can only be set for monthly sessions" });
       }
       
-      // Only admin can set control status to 'invoice_and_send'
-      if (controlStatus === 'invoice_and_send' && userRole !== 'admin') {
+      // Only admin can change control status
+      if (userRole !== 'admin') {
         return res.status(403).json({ 
-          message: "Only administrators can mark sessions as 'Invoice and send'." 
-        });
-      }
-      
-      // Only receptionist or admin can change control status
-      if (userRole !== 'receptionist' && userRole !== 'admin') {
-        return res.status(403).json({ 
-          message: "Only receptionists or administrators can change control status." 
+          message: "Only administrators can change control status." 
         });
       }
 

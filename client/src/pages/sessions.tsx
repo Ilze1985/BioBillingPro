@@ -1019,45 +1019,45 @@ export default function SessionsPage() {
                     {canMarkAsInvoiced && (
                       <td className="p-3 align-middle text-center">
                         {session.billingFrequency === 'monthly' ? (
-                          <Select
-                            value={session.controlStatus || 'awaiting_review'}
-                            onValueChange={(value: ControlStatus) => {
-                              updateControlStatusMutation.mutate({
-                                id: session.id,
-                                controlStatus: value,
-                                userRole: currentUserRole
-                              }, {
-                                onSuccess: () => {
-                                  toast({
-                                    title: "Control Updated",
-                                    description: `Session control status updated to ${value === 'invoice_and_send' ? 'Invoice and send' : 'Awaiting review'}.`,
-                                  });
-                                },
-                                onError: (error: Error) => {
-                                  toast({
-                                    title: "Error",
-                                    description: error.message,
-                                    variant: "destructive",
-                                  });
-                                }
-                              });
-                            }}
-                            disabled={updateControlStatusMutation.isPending || (isReceptionist && session.controlStatus !== 'invoice_and_send')}
-                          >
-                            <SelectTrigger className="h-7 w-[120px] text-[10px]" data-testid={`select-control-${session.id}`}>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="awaiting_review" className="text-xs">Awaiting review</SelectItem>
-                              <SelectItem 
-                                value="invoice_and_send" 
-                                className="text-xs"
-                                disabled={isReceptionist}
-                              >
-                                Invoice and send
-                              </SelectItem>
-                            </SelectContent>
-                          </Select>
+                          isAdmin ? (
+                            <Select
+                              value={session.controlStatus || 'awaiting_review'}
+                              onValueChange={(value: ControlStatus) => {
+                                updateControlStatusMutation.mutate({
+                                  id: session.id,
+                                  controlStatus: value,
+                                  userRole: currentUserRole
+                                }, {
+                                  onSuccess: () => {
+                                    toast({
+                                      title: "Control Updated",
+                                      description: `Session control status updated to ${value === 'invoice_and_send' ? 'Invoice and send' : 'Awaiting review'}.`,
+                                    });
+                                  },
+                                  onError: (error: Error) => {
+                                    toast({
+                                      title: "Error",
+                                      description: error.message,
+                                      variant: "destructive",
+                                    });
+                                  }
+                                });
+                              }}
+                              disabled={updateControlStatusMutation.isPending}
+                            >
+                              <SelectTrigger className="h-7 w-[120px] text-[10px]" data-testid={`select-control-${session.id}`}>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="awaiting_review" className="text-xs">Awaiting review</SelectItem>
+                                <SelectItem value="invoice_and_send" className="text-xs">Invoice and send</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          ) : (
+                            <span className={`text-[10px] font-medium ${session.controlStatus === 'invoice_and_send' ? 'text-green-600' : 'text-amber-600'}`}>
+                              {session.controlStatus === 'invoice_and_send' ? 'Invoice and send' : 'Awaiting review'}
+                            </span>
+                          )
                         ) : (
                           <span className="text-[10px] text-muted-foreground">-</span>
                         )}
@@ -1066,26 +1066,34 @@ export default function SessionsPage() {
                     {canMarkAsInvoiced && (
                       <td className="p-3 align-middle text-center">
                         {session.status === 'captured' ? (
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="gap-1 h-7 text-xs px-2"
-                                  onClick={() => handleMarkAsInvoiced(session.id)}
-                                  disabled={updateStatusMutation.isPending}
-                                  data-testid={`button-invoice-${session.id}`}
-                                >
-                                  <FileCheck className="h-3 w-3" />
-                                  Invoice
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p>Mark this session as invoiced. This will lock the session from editing.</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
+                          (() => {
+                            const isMonthlyAwaitingReview = session.billingFrequency === 'monthly' && session.controlStatus !== 'invoice_and_send';
+                            const buttonDisabled = updateStatusMutation.isPending || (isReceptionist && isMonthlyAwaitingReview);
+                            return (
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="gap-1 h-7 text-xs px-2"
+                                      onClick={() => handleMarkAsInvoiced(session.id)}
+                                      disabled={buttonDisabled}
+                                      data-testid={`button-invoice-${session.id}`}
+                                    >
+                                      <FileCheck className="h-3 w-3" />
+                                      Invoice
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p>{isReceptionist && isMonthlyAwaitingReview 
+                                      ? 'Admin must set control to "Invoice and send" first' 
+                                      : 'Mark this session as invoiced. This will lock the session from editing.'}</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            );
+                          })()
                         ) : (
                           <span className="text-[10px] text-muted-foreground">
                             {session.status === 'invoiced' ? 'Locked' : 'Paid'}
