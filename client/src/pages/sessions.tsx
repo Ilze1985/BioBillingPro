@@ -62,6 +62,13 @@ export default function SessionsPage() {
   const [monthlyPeriodFilter, setMonthlyPeriodFilter] = useState<string>("all");
   const [monthlyPractitionerFilter, setMonthlyPractitionerFilter] = useState<string>("all");
   
+  // Reconciliation filters
+  const [reconPeriodFilter, setReconPeriodFilter] = useState<string>("all");
+  const [reconStartDate, setReconStartDate] = useState<string>("");
+  const [reconEndDate, setReconEndDate] = useState<string>("");
+  const [reconPracticeFilter, setReconPracticeFilter] = useState<string>("all");
+  const [reconPractitionerFilter, setReconPractitionerFilter] = useState<string>("all");
+  
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedPeriodFilter, setSelectedPeriodFilter] = useState<string>("all");
   const [practitionerFilter, setPractitionerFilter] = useState<string>("all");
@@ -769,6 +776,7 @@ export default function SessionsPage() {
             <TabsTrigger value="sessions" data-testid="tab-sessions">All Sessions</TabsTrigger>
             <TabsTrigger value="weekly-statements" data-testid="tab-weekly-statements">Weekly Statements</TabsTrigger>
             <TabsTrigger value="monthly-statements" data-testid="tab-monthly-statements">Monthly Statements</TabsTrigger>
+            <TabsTrigger value="reconciliation" data-testid="tab-reconciliation">Reconciliation</TabsTrigger>
             {isAdmin && (
               <TabsTrigger value="archived" data-testid="tab-archived">Archived</TabsTrigger>
             )}
@@ -781,6 +789,9 @@ export default function SessionsPage() {
           </TabsContent>
           <TabsContent value="monthly-statements" className="mt-4">
             <MonthlyStatementsCard />
+          </TabsContent>
+          <TabsContent value="reconciliation" className="mt-4">
+            <ReconciliationCard />
           </TabsContent>
           {isAdmin && (
             <TabsContent value="archived" className="mt-4">
@@ -1562,6 +1573,217 @@ export default function SessionsPage() {
               </table>
             </div>
           )}
+        </CardContent>
+      </Card>
+    );
+  }
+
+  function ReconciliationCard() {
+    // Filter sessions based on reconciliation criteria
+    const filteredSessions = sessions.filter(session => {
+      // Period filter
+      if (reconPeriodFilter !== "all" && session.financialPeriodId?.toString() !== reconPeriodFilter) {
+        return false;
+      }
+      
+      // Date range filter
+      if (reconStartDate && session.date < reconStartDate) return false;
+      if (reconEndDate && session.date > reconEndDate) return false;
+      
+      // Practice filter
+      if (reconPracticeFilter !== "all" && session.practiceName !== reconPracticeFilter) return false;
+      
+      // Practitioner filter
+      if (reconPractitionerFilter !== "all" && session.practitionerId?.toString() !== reconPractitionerFilter) return false;
+      
+      return true;
+    });
+
+    // Calculate totals
+    const medicalAidTotal = filteredSessions
+      .filter(s => s.billingType === 'medical_aid')
+      .reduce((sum, s) => sum + (s.finalPrice || 0), 0);
+    
+    const privateTotal = filteredSessions
+      .filter(s => s.billingType === 'private')
+      .reduce((sum, s) => sum + (s.finalPrice || 0), 0);
+    
+    const privateCashTotal = filteredSessions
+      .filter(s => s.billingType === 'private_cash')
+      .reduce((sum, s) => sum + (s.finalPrice || 0), 0);
+    
+    const grandTotal = medicalAidTotal + privateTotal + privateCashTotal;
+
+    // Auto-set date range when period changes
+    const handlePeriodChange = (value: string) => {
+      setReconPeriodFilter(value);
+      if (value !== "all") {
+        const period = financialPeriods.find(p => p.id.toString() === value);
+        if (period) {
+          setReconStartDate(period.startDate);
+          setReconEndDate(period.endDate);
+        }
+      } else {
+        setReconStartDate("");
+        setReconEndDate("");
+      }
+    };
+
+    return (
+      <Card className="shadow-sm">
+        <CardHeader className="pb-3">
+          <CardTitle>Reconciliation</CardTitle>
+          <p className="text-sm text-muted-foreground">Filter and calculate session totals for reconciliation.</p>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Filters */}
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+            <div className="space-y-2">
+              <Label>Financial Period</Label>
+              <Select value={reconPeriodFilter} onValueChange={handlePeriodChange}>
+                <SelectTrigger data-testid="select-recon-period">
+                  <SelectValue placeholder="All Periods" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Periods</SelectItem>
+                  {financialPeriods.map((period) => (
+                    <SelectItem key={period.id} value={period.id.toString()}>
+                      {period.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Start Date</Label>
+              <Input 
+                type="date" 
+                value={reconStartDate} 
+                onChange={(e) => setReconStartDate(e.target.value)}
+                data-testid="input-recon-start-date"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>End Date</Label>
+              <Input 
+                type="date" 
+                value={reconEndDate} 
+                onChange={(e) => setReconEndDate(e.target.value)}
+                data-testid="input-recon-end-date"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Practice Name</Label>
+              <Select value={reconPracticeFilter} onValueChange={setReconPracticeFilter}>
+                <SelectTrigger data-testid="select-recon-practice">
+                  <SelectValue placeholder="All Practices" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Practices</SelectItem>
+                  <SelectItem value="DPP">DPP</SelectItem>
+                  <SelectItem value="IDP">IDP</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Practitioner</Label>
+              <Select value={reconPractitionerFilter} onValueChange={setReconPractitionerFilter}>
+                <SelectTrigger data-testid="select-recon-practitioner">
+                  <SelectValue placeholder="All Practitioners" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Practitioners</SelectItem>
+                  {users.filter(u => u.role === 'practitioner' || u.role === 'admin').map((user) => (
+                    <SelectItem key={user.id} value={user.id.toString()}>
+                      {user.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {/* Summary Cards */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
+            <Card className="bg-blue-50 border-blue-200">
+              <CardContent className="pt-4">
+                <p className="text-sm text-blue-600 font-medium">Medical Aid</p>
+                <p className="text-2xl font-bold text-blue-800">R {medicalAidTotal.toFixed(2)}</p>
+                <p className="text-xs text-blue-500">{filteredSessions.filter(s => s.billingType === 'medical_aid').length} sessions</p>
+              </CardContent>
+            </Card>
+            <Card className="bg-purple-50 border-purple-200">
+              <CardContent className="pt-4">
+                <p className="text-sm text-purple-600 font-medium">Private</p>
+                <p className="text-2xl font-bold text-purple-800">R {privateTotal.toFixed(2)}</p>
+                <p className="text-xs text-purple-500">{filteredSessions.filter(s => s.billingType === 'private').length} sessions</p>
+              </CardContent>
+            </Card>
+            <Card className="bg-green-50 border-green-200">
+              <CardContent className="pt-4">
+                <p className="text-sm text-green-600 font-medium">Private Cash</p>
+                <p className="text-2xl font-bold text-green-800">R {privateCashTotal.toFixed(2)}</p>
+                <p className="text-xs text-green-500">{filteredSessions.filter(s => s.billingType === 'private_cash').length} sessions</p>
+              </CardContent>
+            </Card>
+            <Card className="bg-gray-100 border-gray-300">
+              <CardContent className="pt-4">
+                <p className="text-sm text-gray-600 font-medium">Grand Total</p>
+                <p className="text-2xl font-bold text-gray-900">R {grandTotal.toFixed(2)}</p>
+                <p className="text-xs text-gray-500">{filteredSessions.length} sessions</p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Sessions Table */}
+          <div className="rounded-md border mt-4">
+            <table className="w-full caption-bottom text-sm">
+              <thead className="[&_tr]:border-b">
+                <tr className="border-b transition-colors hover:bg-muted/50">
+                  <th className="h-10 px-3 text-left align-middle text-xs font-medium text-muted-foreground">Date</th>
+                  <th className="h-10 px-3 text-left align-middle text-xs font-medium text-muted-foreground">Patient</th>
+                  <th className="h-10 px-3 text-left align-middle text-xs font-medium text-muted-foreground">Practice</th>
+                  <th className="h-10 px-3 text-left align-middle text-xs font-medium text-muted-foreground">Practitioner</th>
+                  <th className="h-10 px-3 text-left align-middle text-xs font-medium text-muted-foreground">Type</th>
+                  <th className="h-10 px-3 text-left align-middle text-xs font-medium text-muted-foreground">Status</th>
+                  <th className="h-10 px-3 text-right align-middle text-xs font-medium text-muted-foreground">Amount</th>
+                </tr>
+              </thead>
+              <tbody className="[&_tr:last-child]:border-0">
+                {filteredSessions.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="p-8 text-center text-muted-foreground">
+                      No sessions match the selected filters.
+                    </td>
+                  </tr>
+                ) : (
+                  filteredSessions.map((session) => (
+                    <tr key={session.id} className="border-b transition-colors hover:bg-muted/50" data-testid={`row-recon-${session.id}`}>
+                      <td className="p-3 align-middle">{session.date}</td>
+                      <td className="p-3 align-middle font-medium">{session.patientName}</td>
+                      <td className="p-3 align-middle">{session.practiceName || '-'}</td>
+                      <td className="p-3 align-middle">{session.practitionerName}</td>
+                      <td className="p-3 align-middle">
+                        <Badge 
+                          variant="secondary"
+                          className={
+                            session.billingType === 'medical_aid' ? 'bg-blue-100 text-blue-800' :
+                            session.billingType === 'private' ? 'bg-purple-100 text-purple-800' :
+                            'bg-green-100 text-green-800'
+                          }
+                        >
+                          {session.billingType === 'medical_aid' ? 'Medical Aid' :
+                           session.billingType === 'private' ? 'Private' : 'Private Cash'}
+                        </Badge>
+                      </td>
+                      <td className="p-3 align-middle capitalize">{session.status}</td>
+                      <td className="p-3 align-middle text-right font-medium">R {session.finalPrice?.toFixed(2) || "0.00"}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
         </CardContent>
       </Card>
     );
