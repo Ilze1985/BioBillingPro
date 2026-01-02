@@ -71,6 +71,12 @@ export interface FinancialPeriod {
   endDate: string;
 }
 
+export interface PopulationGroup {
+  id: number;
+  name: string;
+  description: string | null;
+}
+
 export type StatementStatus = 'awaiting_review' | 'ready_to_send' | 'statement_sent' | 'archived';
 
 export interface WeeklyBillingStatement {
@@ -308,6 +314,37 @@ async function updateFinancialPeriod(id: number, data: Partial<FinancialPeriod>)
 async function deleteFinancialPeriod(id: number): Promise<void> {
   const res = await fetch(`/api/financial-periods/${id}`, { method: 'DELETE' });
   if (!res.ok) throw new Error('Failed to delete financial period');
+}
+
+async function fetchPopulationGroups(): Promise<PopulationGroup[]> {
+  const res = await fetch('/api/population-groups');
+  if (!res.ok) throw new Error('Failed to fetch population groups');
+  return res.json();
+}
+
+async function createPopulationGroup(group: Omit<PopulationGroup, 'id'>): Promise<PopulationGroup> {
+  const res = await fetch('/api/population-groups', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(group)
+  });
+  if (!res.ok) throw new Error('Failed to create population group');
+  return res.json();
+}
+
+async function updatePopulationGroup(id: number, data: Partial<PopulationGroup>): Promise<PopulationGroup> {
+  const res = await fetch(`/api/population-groups/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  });
+  if (!res.ok) throw new Error('Failed to update population group');
+  return res.json();
+}
+
+async function deletePopulationGroup(id: number): Promise<void> {
+  const res = await fetch(`/api/population-groups/${id}`, { method: 'DELETE' });
+  if (!res.ok) throw new Error('Failed to delete population group');
 }
 
 async function monthlyRollover(sourceMonth: string, targetMonth: string): Promise<{ message: string; created: number; deleted: number }> {
@@ -553,6 +590,43 @@ export function useDeleteFinancialPeriod() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['financialPeriods'] });
       queryClient.invalidateQueries({ queryKey: ['sessions'] });
+    },
+  });
+}
+
+export function usePopulationGroups() {
+  return useQuery({
+    queryKey: ['populationGroups'],
+    queryFn: fetchPopulationGroups,
+  });
+}
+
+export function useCreatePopulationGroup() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: createPopulationGroup,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['populationGroups'] });
+    },
+  });
+}
+
+export function useUpdatePopulationGroup() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }: { id: number; data: Partial<PopulationGroup> }) => updatePopulationGroup(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['populationGroups'] });
+    },
+  });
+}
+
+export function useDeletePopulationGroup() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: deletePopulationGroup,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['populationGroups'] });
     },
   });
 }
