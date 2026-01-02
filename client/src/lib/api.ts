@@ -56,6 +56,7 @@ export interface Session {
 export interface EnrichedSession extends Session {
   practitionerName: string;
   patientName: string;
+  practiceName: string | null;
   billingCodes: string[];
   totalPrice: number;
   finalPrice: number;

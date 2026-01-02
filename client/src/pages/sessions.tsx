@@ -930,6 +930,7 @@ export default function SessionsPage() {
                 <tr className="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted">
                   <th className="h-10 px-3 text-left align-middle text-xs font-medium text-muted-foreground">Date</th>
                   <th className="h-10 px-3 text-left align-middle text-xs font-medium text-muted-foreground">Patient</th>
+                  <th className="h-10 px-3 text-left align-middle text-xs font-medium text-muted-foreground">Practice</th>
                   <th className="h-10 px-3 text-left align-middle text-xs font-medium text-muted-foreground">Type</th>
                   <th className="h-10 px-3 text-left align-middle text-xs font-medium text-muted-foreground">Code</th>
                   <th className="h-10 px-3 text-left align-middle text-xs font-medium text-muted-foreground">Practitioner</th>
@@ -957,6 +958,7 @@ export default function SessionsPage() {
                       </div>
                     </td>
                     <td className="p-3 align-middle text-xs font-medium">{session.patientName}</td>
+                    <td className="p-3 align-middle text-xs text-muted-foreground">{session.practiceName || '-'}</td>
                     <td className="p-3 align-middle">
                       <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${
                         session.billingType === 'private' 

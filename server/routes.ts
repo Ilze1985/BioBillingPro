@@ -787,6 +787,7 @@ export async function registerRoutes(
           ...session,
           practitionerName: practitioner?.name || 'Unknown',
           patientName: patient ? `${patient.firstName} ${patient.surname}` : 'Unknown',
+          practiceName: patient?.practiceName || null,
           billingCodes: billingCodeNames,
           totalPrice: totalPrice,
           finalPrice: finalPrice,
