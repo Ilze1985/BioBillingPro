@@ -925,85 +925,95 @@ export default function SessionsPage() {
             <table className="w-full caption-bottom text-sm">
               <thead className="[&_tr]:border-b">
                 <tr className="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted">
-                  <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Date</th>
-                  <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Patient</th>
-                  <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Type</th>
-                  <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Code</th>
-                  <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Practitioner</th>
-                  <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Period</th>
-                  <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Status</th>
-                  <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Amount</th>
-                  <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Discount</th>
-                  <th className="h-12 px-4 text-right align-middle font-medium text-muted-foreground">Total</th>
+                  <th className="h-10 px-3 text-left align-middle text-xs font-medium text-muted-foreground">Date</th>
+                  <th className="h-10 px-3 text-left align-middle text-xs font-medium text-muted-foreground">Patient</th>
+                  <th className="h-10 px-3 text-left align-middle text-xs font-medium text-muted-foreground">Type</th>
+                  <th className="h-10 px-3 text-left align-middle text-xs font-medium text-muted-foreground">Code</th>
+                  <th className="h-10 px-3 text-left align-middle text-xs font-medium text-muted-foreground">Practitioner</th>
+                  <th className="h-10 px-3 text-left align-middle text-xs font-medium text-muted-foreground">Period</th>
+                  <th className="h-10 px-3 text-left align-middle text-xs font-medium text-muted-foreground">Status</th>
+                  <th className="h-10 px-3 text-left align-middle text-xs font-medium text-muted-foreground">Amount</th>
+                  <th className="h-10 px-3 text-left align-middle text-xs font-medium text-muted-foreground text-destructive">Discount</th>
+                  <th className="h-10 px-3 text-left align-middle text-xs font-medium text-green-600">Cash Disc.</th>
+                  <th className="h-10 px-3 text-right align-middle text-xs font-medium text-muted-foreground">Total</th>
                   {canMarkAsInvoiced && (
-                    <th className="h-12 px-4 text-center align-middle font-medium text-muted-foreground">Actions</th>
+                    <th className="h-10 px-3 text-center align-middle text-xs font-medium text-muted-foreground">Actions</th>
                   )}
                 </tr>
               </thead>
               <tbody className="[&_tr:last-child]:border-0">
                 {filteredSessions.map((session) => (
                   <tr key={session.id} className="border-b transition-colors hover:bg-muted/50" data-testid={`row-session-${session.id}`}>
-                    <td className="p-4 align-middle">
+                    <td className="p-3 align-middle">
                       <div className="flex flex-col">
-                        <span className="font-medium">{session.date}</span>
-                        <span className="text-xs text-muted-foreground">{session.time}</span>
+                        <span className="text-xs font-medium">{session.date}</span>
+                        <span className="text-[10px] text-muted-foreground">{session.time}</span>
                       </div>
                     </td>
-                    <td className="p-4 align-middle font-medium">{session.patientName}</td>
-                    <td className="p-4 align-middle">
-                      <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                    <td className="p-3 align-middle text-xs font-medium">{session.patientName}</td>
+                    <td className="p-3 align-middle">
+                      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${
                         session.billingType === 'private' 
                           ? 'bg-purple-100 text-purple-800' 
                           : session.billingType === 'private_cash'
                           ? 'bg-green-100 text-green-800'
                           : 'bg-blue-100 text-blue-800'
                       }`}>
-                        {session.billingType === 'private' ? 'Private' : session.billingType === 'private_cash' ? 'Private Cash' : 'Medical Aid'}
+                        {session.billingType === 'private' ? 'Private' : session.billingType === 'private_cash' ? 'Cash' : 'Med Aid'}
                       </span>
                     </td>
-                    <td className="p-4 align-middle">
+                    <td className="p-3 align-middle">
                       <div className="flex flex-wrap gap-1">
                         {session.billingCodes.map((code, idx) => (
-                          <span key={idx} className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold border-transparent bg-secondary text-secondary-foreground">
+                          <span key={idx} className="inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold border-transparent bg-secondary text-secondary-foreground">
                             {code}
                           </span>
                         ))}
                       </div>
                     </td>
-                    <td className="p-4 align-middle text-muted-foreground">{session.practitionerName}</td>
-                    <td className="p-4 align-middle">
+                    <td className="p-3 align-middle text-xs text-muted-foreground">{session.practitionerName}</td>
+                    <td className="p-3 align-middle">
                       {session.financialPeriod ? (
-                        <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold border-transparent bg-orange-100 text-orange-800">
+                        <span className="inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold border-transparent bg-orange-100 text-orange-800">
                           {session.financialPeriod}
                         </span>
                       ) : (
-                        <span className="text-xs text-muted-foreground">-</span>
+                        <span className="text-[10px] text-muted-foreground">-</span>
                       )}
                     </td>
-                    <td className="p-4 align-middle">
-                      <span className={
+                    <td className="p-3 align-middle">
+                      <span className={`text-xs ${
                         session.status === 'paid' ? "text-green-600 font-medium" :
                         session.status === 'invoiced' ? "text-blue-600 font-medium" :
                         "text-amber-600 font-medium"
-                      }>
+                      }`}>
                         {session.status.charAt(0).toUpperCase() + session.status.slice(1)}
                       </span>
                     </td>
-                    <td className="p-4 align-middle text-left font-medium">
+                    <td className="p-3 align-middle text-left text-xs font-medium">
                       R {session.totalPrice?.toFixed(2) || "0.00"}
                     </td>
-                    <td className="p-4 align-middle text-left font-medium text-destructive">
+                    <td className="p-3 align-middle text-left text-xs font-medium text-destructive">
                       {session.discountAmount && session.discountAmount > 0 ? (
                         <span>- R {session.discountAmount.toFixed(2)}</span>
                       ) : (
                         <span className="text-muted-foreground">-</span>
                       )}
                     </td>
-                    <td className="p-4 align-middle text-right font-bold text-primary">
+                    <td className="p-3 align-middle text-left text-xs font-medium text-green-600">
+                      {session.billingType === 'private_cash' && session.totalPrice ? (() => {
+                        const roundedCashPrice = Math.round(session.totalPrice * 0.9 / 10) * 10;
+                        const cashDiscount = session.totalPrice - roundedCashPrice;
+                        return <span>- R {cashDiscount.toFixed(2)}</span>;
+                      })() : (
+                        <span className="text-muted-foreground">-</span>
+                      )}
+                    </td>
+                    <td className="p-3 align-middle text-right text-xs font-bold text-primary">
                       R {session.finalPrice?.toFixed(2) || "0.00"}
                     </td>
                     {canMarkAsInvoiced && (
-                      <td className="p-4 align-middle text-center">
+                      <td className="p-3 align-middle text-center">
                         {session.status === 'captured' ? (
                           <TooltipProvider>
                             <Tooltip>
@@ -1011,7 +1021,7 @@ export default function SessionsPage() {
                                 <Button
                                   size="sm"
                                   variant="outline"
-                                  className="gap-1"
+                                  className="gap-1 h-7 text-xs px-2"
                                   onClick={() => handleMarkAsInvoiced(session.id)}
                                   disabled={updateStatusMutation.isPending}
                                   data-testid={`button-invoice-${session.id}`}
@@ -1026,7 +1036,7 @@ export default function SessionsPage() {
                             </Tooltip>
                           </TooltipProvider>
                         ) : (
-                          <span className="text-xs text-muted-foreground">
+                          <span className="text-[10px] text-muted-foreground">
                             {session.status === 'invoiced' ? 'Locked' : 'Paid'}
                           </span>
                         )}
