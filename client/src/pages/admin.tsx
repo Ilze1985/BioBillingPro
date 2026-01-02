@@ -524,6 +524,8 @@ export default function AdminPage() {
                   <thead className="[&_tr]:border-b">
                     <tr className="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted">
                       <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Name</th>
+                      <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Practice Name</th>
+                      <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Practitioner</th>
                       <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Date of Birth</th>
                       <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Account No.</th>
                       <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Billing Type</th>
@@ -531,9 +533,13 @@ export default function AdminPage() {
                     </tr>
                   </thead>
                   <tbody className="[&_tr:last-child]:border-0">
-                    {patients.map((patient) => (
+                    {patients.map((patient) => {
+                      const practitioner = users.find(u => u.id === patient.practitionerId);
+                      return (
                       <tr key={patient.id} className="border-b transition-colors hover:bg-muted/50" data-testid={`row-patient-${patient.id}`}>
                         <td className="p-4 align-middle font-medium">{patient.firstName} {patient.surname}</td>
+                        <td className="p-4 align-middle">{patient.practiceName || '-'}</td>
+                        <td className="p-4 align-middle">{practitioner?.name || '-'}</td>
                         <td className="p-4 align-middle">{patient.dateOfBirth || '-'}</td>
                         <td className="p-4 align-middle">{patient.accountNumber || '-'}</td>
                         <td className="p-4 align-middle">
@@ -583,7 +589,8 @@ export default function AdminPage() {
                           </Button>
                         </td>
                       </tr>
-                    ))}
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
