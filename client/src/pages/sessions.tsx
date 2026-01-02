@@ -524,7 +524,7 @@ export default function SessionsPage() {
                     <SelectValue placeholder="Select practitioner" />
                   </SelectTrigger>
                   <SelectContent>
-                    {users.map(u => (
+                    {users.filter(u => u.role === 'practitioner' || u.role === 'admin').map(u => (
                       <SelectItem key={u.id} value={u.id.toString()}>{u.name}</SelectItem>
                     ))}
                   </SelectContent>
