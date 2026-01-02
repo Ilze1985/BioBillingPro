@@ -1134,5 +1134,180 @@ export async function registerRoutes(
     }
   });
 
+  // Backup endpoint - available to admin and receptionist
+  app.get("/api/backup", requireAuth, async (req, res) => {
+    try {
+      if (req.user!.role !== 'admin' && req.user!.role !== 'receptionist') {
+        return res.status(403).json({ message: "Only admin or receptionist can create backups" });
+      }
+
+      const [users, patients, billingCodes, sessions, financialPeriods, populationGroups, weeklyStatements, monthlyStatements] = await Promise.all([
+        storage.getAllUsers(),
+        storage.getAllPatients(),
+        storage.getAllBillingCodes(),
+        storage.getAllSessions(),
+        storage.getAllFinancialPeriods(),
+        storage.getAllPopulationGroups(),
+        storage.getAllWeeklyBillingStatements(),
+        storage.getAllMonthlyBillingStatements()
+      ]);
+
+      const backup = {
+        version: "1.0",
+        generatedAt: new Date().toISOString(),
+        data: {
+          users,
+          patients,
+          billingCodes,
+          sessions,
+          financialPeriods,
+          populationGroups,
+          weeklyBillingStatements: weeklyStatements,
+          monthlyBillingStatements: monthlyStatements
+        }
+      };
+
+      const filename = `biokinetics_backup_${new Date().toISOString().split('T')[0]}.json`;
+      res.setHeader('Content-Type', 'application/json');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      res.json(backup);
+    } catch (error) {
+      console.error("Backup error:", error);
+      res.status(500).json({ message: "Failed to create backup" });
+    }
+  });
+
+  // Restore endpoint - admin only
+  const jsonUpload = multer({ 
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 10 * 1024 * 1024 }
+  });
+
+  app.post("/api/restore", requireAdmin, jsonUpload.single('backup'), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ message: "No backup file provided" });
+      }
+
+      const backupData = JSON.parse(req.file.buffer.toString('utf-8'));
+
+      if (!backupData.version || !backupData.data) {
+        return res.status(400).json({ message: "Invalid backup file format" });
+      }
+
+      const { users, patients, billingCodes, sessions, financialPeriods, populationGroups, weeklyBillingStatements, monthlyBillingStatements } = backupData.data;
+
+      // Clear existing data in reverse dependency order
+      const allMonthlyStatements = await storage.getAllMonthlyBillingStatements();
+      for (const s of allMonthlyStatements) await storage.deleteMonthlyBillingStatement(s.id);
+
+      const allWeeklyStatements = await storage.getAllWeeklyBillingStatements();
+      for (const s of allWeeklyStatements) await storage.deleteWeeklyBillingStatement(s.id);
+
+      const allSessions = await storage.getAllSessions();
+      for (const s of allSessions) await storage.deleteSession(s.id);
+
+      const allPatients = await storage.getAllPatients();
+      for (const p of allPatients) await storage.deletePatient(p.id);
+
+      const allBillingCodes = await storage.getAllBillingCodes();
+      for (const c of allBillingCodes) await storage.deleteBillingCode(c.id);
+
+      const allFinancialPeriods = await storage.getAllFinancialPeriods();
+      for (const p of allFinancialPeriods) await storage.deleteFinancialPeriod(p.id);
+
+      const allPopulationGroups = await storage.getAllPopulationGroups();
+      for (const g of allPopulationGroups) await storage.deletePopulationGroup(g.id);
+
+      const allUsers = await storage.getAllUsers();
+      for (const u of allUsers) {
+        if (u.id !== req.user!.id) await storage.deleteUser(u.id);
+      }
+
+      // Restore data in dependency order
+      const userIdMap = new Map<number, number>();
+      for (const user of users || []) {
+        if (user.id === req.user!.id) {
+          userIdMap.set(user.id, user.id);
+          continue;
+        }
+        const { id, ...userData } = user;
+        const newUser = await storage.createUser(userData);
+        userIdMap.set(id, newUser.id);
+      }
+
+      const billingCodeIdMap = new Map<number, number>();
+      for (const code of billingCodes || []) {
+        const { id, ...codeData } = code;
+        const newCode = await storage.createBillingCode(codeData);
+        billingCodeIdMap.set(id, newCode.id);
+      }
+
+      const periodIdMap = new Map<number, number>();
+      for (const period of financialPeriods || []) {
+        const { id, ...periodData } = period;
+        const newPeriod = await storage.createFinancialPeriod(periodData);
+        periodIdMap.set(id, newPeriod.id);
+      }
+
+      const groupIdMap = new Map<number, number>();
+      for (const group of populationGroups || []) {
+        const { id, ...groupData } = group;
+        const newGroup = await storage.createPopulationGroup(groupData);
+        groupIdMap.set(id, newGroup.id);
+      }
+
+      const patientIdMap = new Map<number, number>();
+      for (const patient of patients || []) {
+        const { id, practitionerId, ...patientData } = patient;
+        const newPatient = await storage.createPatient({
+          ...patientData,
+          practitionerId: practitionerId ? userIdMap.get(practitionerId) || practitionerId : null
+        });
+        patientIdMap.set(id, newPatient.id);
+      }
+
+      const sessionIdMap = new Map<number, number>();
+      for (const session of sessions || []) {
+        const { id, practitionerId, patientId, billingCodeIds, financialPeriodId, ...sessionData } = session;
+        const newSession = await storage.createSession({
+          ...sessionData,
+          practitionerId: userIdMap.get(practitionerId) || practitionerId,
+          patientId: patientIdMap.get(patientId) || patientId,
+          billingCodeIds: (billingCodeIds || []).map((cid: number) => billingCodeIdMap.get(cid) || cid),
+          financialPeriodId: financialPeriodId ? periodIdMap.get(financialPeriodId) || financialPeriodId : null
+        });
+        sessionIdMap.set(id, newSession.id);
+      }
+
+      for (const statement of weeklyBillingStatements || []) {
+        const { id, patientId, practitionerId, financialPeriodId, sessionId, ...statementData } = statement;
+        await storage.createWeeklyBillingStatement({
+          ...statementData,
+          patientId: patientIdMap.get(patientId) || patientId,
+          practitionerId: userIdMap.get(practitionerId) || practitionerId,
+          financialPeriodId: financialPeriodId ? periodIdMap.get(financialPeriodId) || financialPeriodId : null,
+          sessionId: sessionId ? sessionIdMap.get(sessionId) || sessionId : null
+        });
+      }
+
+      for (const statement of monthlyBillingStatements || []) {
+        const { id, patientId, practitionerId, financialPeriodId, sessionId, ...statementData } = statement;
+        await storage.createMonthlyBillingStatement({
+          ...statementData,
+          patientId: patientIdMap.get(patientId) || patientId,
+          practitionerId: userIdMap.get(practitionerId) || practitionerId,
+          financialPeriodId: financialPeriodId ? periodIdMap.get(financialPeriodId) || financialPeriodId : null,
+          sessionId: sessionId ? sessionIdMap.get(sessionId) || sessionId : null
+        });
+      }
+
+      res.json({ message: "Backup restored successfully" });
+    } catch (error) {
+      console.error("Restore error:", error);
+      res.status(500).json({ message: "Failed to restore backup" });
+    }
+  });
+
   return httpServer;
 }

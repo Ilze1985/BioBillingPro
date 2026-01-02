@@ -1,5 +1,6 @@
 import { useState, useRef } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
+import { useAuth } from "@/lib/auth";
 import { 
   useSessions, useUsers, useBillingCodes, usePatients, useFinancialPeriods, usePopulationGroups,
   useDeleteUser, useDeletePatient, useDeleteBillingCode, useDeleteSession, useDeleteFinancialPeriod, useDeletePopulationGroup,
@@ -14,7 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Download, Plus, Pencil, Trash2, Upload, FileSpreadsheet } from "lucide-react";
+import { Download, Plus, Pencil, Trash2, Upload, FileSpreadsheet, Database, RotateCcw } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -37,12 +38,13 @@ import {
 import { useToast } from "@/hooks/use-toast";
 
 export default function AdminPage() {
-  const { data: sessions = [], isLoading: loadingSessions } = useSessions();
-  const { data: users = [], isLoading: loadingUsers } = useUsers();
-  const { data: billingCodes = [], isLoading: loadingCodes } = useBillingCodes();
-  const { data: patients = [], isLoading: loadingPatients } = usePatients();
-  const { data: financialPeriods = [], isLoading: loadingPeriods } = useFinancialPeriods();
-  const { data: populationGroups = [], isLoading: loadingGroups } = usePopulationGroups();
+  const { user: currentUser, isAdmin } = useAuth();
+  const { data: sessions = [], isLoading: loadingSessions, refetch: refetchSessions } = useSessions();
+  const { data: users = [], isLoading: loadingUsers, refetch: refetchUsers } = useUsers();
+  const { data: billingCodes = [], isLoading: loadingCodes, refetch: refetchCodes } = useBillingCodes();
+  const { data: patients = [], isLoading: loadingPatients, refetch: refetchPatients } = usePatients();
+  const { data: financialPeriods = [], isLoading: loadingPeriods, refetch: refetchPeriods } = useFinancialPeriods();
+  const { data: populationGroups = [], isLoading: loadingGroups, refetch: refetchGroups } = usePopulationGroups();
 
   const deleteUserMutation = useDeleteUser();
   const deletePatientMutation = useDeletePatient();
@@ -64,6 +66,11 @@ export default function AdminPage() {
 
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const restoreInputRef = useRef<HTMLInputElement>(null);
+  const [isBackingUp, setIsBackingUp] = useState(false);
+  const [isRestoring, setIsRestoring] = useState(false);
+  const [restoreConfirmDialog, setRestoreConfirmDialog] = useState(false);
+  const [pendingRestoreFile, setPendingRestoreFile] = useState<File | null>(null);
 
   const [deleteDialog, setDeleteDialog] = useState<{ type: string; id: number; name: string } | null>(null);
   const [editUserDialog, setEditUserDialog] = useState<User | null>(null);
@@ -102,6 +109,72 @@ export default function AdminPage() {
       toast({ title: "Error", description: "Failed to delete.", variant: "destructive" });
     }
     setDeleteDialog(null);
+  };
+
+  const handleBackup = async () => {
+    setIsBackingUp(true);
+    try {
+      const response = await fetch('/api/backup', { credentials: 'include' });
+      if (!response.ok) {
+        throw new Error('Backup failed');
+      }
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `biokinetics_backup_${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      toast({ title: "Backup Created", description: "Your backup file has been downloaded." });
+    } catch {
+      toast({ title: "Error", description: "Failed to create backup.", variant: "destructive" });
+    } finally {
+      setIsBackingUp(false);
+    }
+  };
+
+  const handleRestoreFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setPendingRestoreFile(file);
+      setRestoreConfirmDialog(true);
+    }
+    if (restoreInputRef.current) {
+      restoreInputRef.current.value = '';
+    }
+  };
+
+  const handleRestore = async () => {
+    if (!pendingRestoreFile) return;
+    setIsRestoring(true);
+    setRestoreConfirmDialog(false);
+    try {
+      const formData = new FormData();
+      formData.append('backup', pendingRestoreFile);
+      const response = await fetch('/api/restore', {
+        method: 'POST',
+        credentials: 'include',
+        body: formData
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Restore failed');
+      }
+      toast({ title: "Restore Complete", description: "Your data has been restored successfully." });
+      refetchSessions();
+      refetchUsers();
+      refetchCodes();
+      refetchPatients();
+      refetchPeriods();
+      refetchGroups();
+    } catch (error) {
+      toast({ title: "Error", description: error instanceof Error ? error.message : "Failed to restore backup.", variant: "destructive" });
+    } finally {
+      setIsRestoring(false);
+      setPendingRestoreFile(null);
+    }
   };
 
   const handleUpdateUser = async () => {
@@ -331,10 +404,31 @@ export default function AdminPage() {
           <h1 className="text-3xl font-bold tracking-tight text-foreground" data-testid="heading-admin">Admin View</h1>
           <p className="text-muted-foreground">Master view of all practice data.</p>
         </div>
-        <Button variant="outline" className="gap-2" data-testid="button-export">
-          <Download className="h-4 w-4" />
-          Export to CSV
-        </Button>
+        <div className="flex gap-2 flex-wrap">
+          <Button variant="outline" className="gap-2" onClick={handleBackup} disabled={isBackingUp} data-testid="button-backup">
+            <Database className="h-4 w-4" />
+            {isBackingUp ? 'Creating Backup...' : 'Backup Data'}
+          </Button>
+          {isAdmin && (
+            <>
+              <input
+                type="file"
+                ref={restoreInputRef}
+                accept=".json"
+                onChange={handleRestoreFileSelect}
+                className="hidden"
+              />
+              <Button variant="outline" className="gap-2" onClick={() => restoreInputRef.current?.click()} disabled={isRestoring} data-testid="button-restore">
+                <RotateCcw className="h-4 w-4" />
+                {isRestoring ? 'Restoring...' : 'Restore Data'}
+              </Button>
+            </>
+          )}
+          <Button variant="outline" className="gap-2" data-testid="button-export">
+            <Download className="h-4 w-4" />
+            Export to CSV
+          </Button>
+        </div>
       </div>
 
       <Tabs defaultValue="all-sessions" className="space-y-4">
@@ -858,6 +952,24 @@ export default function AdminPage() {
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={restoreConfirmDialog} onOpenChange={setRestoreConfirmDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Restore Data from Backup?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will replace ALL existing data with the backup file contents. This action cannot be undone. 
+              Make sure you have a current backup before proceeding.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setPendingRestoreFile(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleRestore} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Restore Data
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
