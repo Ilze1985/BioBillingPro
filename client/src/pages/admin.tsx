@@ -457,6 +457,7 @@ export default function AdminPage() {
                       <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">ID</th>
                       <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Date</th>
                       <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Patient</th>
+                      <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Practice Name</th>
                       <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Type</th>
                       <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Practitioner</th>
                       <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Code</th>
@@ -471,6 +472,7 @@ export default function AdminPage() {
                         <td className="p-4 align-middle font-mono text-xs">{session.id}</td>
                         <td className="p-4 align-middle">{session.date}</td>
                         <td className="p-4 align-middle font-medium">{session.patientName}</td>
+                        <td className="p-4 align-middle">{session.practiceName || '-'}</td>
                         <td className="p-4 align-middle">
                           <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${
                             session.billingType === 'private' 
