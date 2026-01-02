@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useCreateSession, useSessions, usePatients, useBillingCodesByType, useUsers, useFinancialPeriods, useUpdateSessionStatus, useUpdateSessionControlStatus, useWeeklyBillingStatements, useCreateWeeklyBillingStatement, useUpdateWeeklyBillingStatementStatus, useMonthlyBillingStatements, useUpdateMonthlyBillingStatementStatus, useArchivedWeeklyBillingStatements, useArchivedMonthlyBillingStatements, BillingType, StatementStatus, ControlStatus } from "@/lib/api";
+import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -30,6 +31,7 @@ import {
 } from "@/components/ui/tooltip";
 
 export default function SessionsPage() {
+  const { user: currentUser } = useAuth();
   const { data: sessions = [], isLoading } = useSessions();
   const { data: patients = [] } = usePatients();
   const { data: users = [] } = useUsers();
@@ -45,6 +47,9 @@ export default function SessionsPage() {
   const updateStatementStatusMutation = useUpdateWeeklyBillingStatementStatus();
   const updateMonthlyStatementStatusMutation = useUpdateMonthlyBillingStatementStatus();
   const { toast } = useToast();
+  
+  // Get role from authenticated user
+  const currentUserRole = currentUser?.role || "practitioner";
   
   const [activeTab, setActiveTab] = useState("sessions");
   const [statementNote, setStatementNote] = useState("");
@@ -74,7 +79,6 @@ export default function SessionsPage() {
   const [practitionerFilter, setPractitionerFilter] = useState<string>("all");
   const [frequencyFilter, setFrequencyFilter] = useState<string>("all");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [currentUserRole, setCurrentUserRole] = useState<string>("practitioner");
 
   // Form State
   const [selectedPractitionerId, setSelectedPractitionerId] = useState("");
@@ -490,16 +494,9 @@ export default function SessionsPage() {
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2 bg-muted/50 rounded-lg px-3 py-1.5">
             <User className="h-4 w-4 text-muted-foreground" />
-            <Select value={currentUserRole} onValueChange={setCurrentUserRole}>
-              <SelectTrigger className="h-8 w-[130px] border-0 bg-transparent" data-testid="select-user-role">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="practitioner">Practitioner</SelectItem>
-                <SelectItem value="receptionist">Receptionist</SelectItem>
-                <SelectItem value="admin">Admin</SelectItem>
-              </SelectContent>
-            </Select>
+            <Badge variant="secondary" className="capitalize" data-testid="badge-user-role">
+              {currentUserRole}
+            </Badge>
           </div>
           {canCaptureSession && (
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
