@@ -220,7 +220,7 @@ export default function PatientsPage() {
     );
   }
 
-  const PatientFormFields = () => (
+  const patientFormFieldsJsx = (
     <div className="grid gap-4 py-4">
       <div className="grid grid-cols-2 gap-4">
         <div className="grid gap-2">
@@ -374,7 +374,7 @@ export default function PatientsPage() {
               <DialogTitle>Add Patient</DialogTitle>
               <DialogDescription>Create a new patient record.</DialogDescription>
             </DialogHeader>
-            <PatientFormFields />
+            {patientFormFieldsJsx}
             <DialogFooter>
               <DialogClose asChild>
                 <Button variant="outline">Cancel</Button>
@@ -475,7 +475,7 @@ export default function PatientsPage() {
             <DialogTitle>Edit Patient</DialogTitle>
             <DialogDescription>Update patient information.</DialogDescription>
           </DialogHeader>
-          <PatientFormFields />
+          {patientFormFieldsJsx}
           <DialogFooter>
             <DialogClose asChild>
               <Button variant="outline">Cancel</Button>
