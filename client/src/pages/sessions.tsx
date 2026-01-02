@@ -1579,6 +1579,14 @@ export default function SessionsPage() {
   }
 
   function ReconciliationCard() {
+    // Get unique practice names from sessions dynamically
+    const uniquePractices = [...new Set(sessions.map(s => s.practiceName).filter(Boolean))] as string[];
+    
+    // Get selected period for date validation
+    const selectedPeriod = reconPeriodFilter !== "all" 
+      ? financialPeriods.find(p => p.id.toString() === reconPeriodFilter) 
+      : null;
+    
     // Filter sessions based on reconciliation criteria
     const filteredSessions = sessions.filter(session => {
       // Period filter
@@ -1599,18 +1607,23 @@ export default function SessionsPage() {
       return true;
     });
 
-    // Calculate totals
+    // Calculate totals with safe number handling
+    const safeAmount = (val: number | null | undefined): number => {
+      const num = Number(val);
+      return isNaN(num) ? 0 : num;
+    };
+    
     const medicalAidTotal = filteredSessions
       .filter(s => s.billingType === 'medical_aid')
-      .reduce((sum, s) => sum + (s.finalPrice || 0), 0);
+      .reduce((sum, s) => sum + safeAmount(s.finalPrice), 0);
     
     const privateTotal = filteredSessions
       .filter(s => s.billingType === 'private')
-      .reduce((sum, s) => sum + (s.finalPrice || 0), 0);
+      .reduce((sum, s) => sum + safeAmount(s.finalPrice), 0);
     
     const privateCashTotal = filteredSessions
       .filter(s => s.billingType === 'private_cash')
-      .reduce((sum, s) => sum + (s.finalPrice || 0), 0);
+      .reduce((sum, s) => sum + safeAmount(s.finalPrice), 0);
     
     const grandTotal = medicalAidTotal + privateTotal + privateCashTotal;
 
@@ -1627,6 +1640,27 @@ export default function SessionsPage() {
         setReconStartDate("");
         setReconEndDate("");
       }
+    };
+    
+    // Validate and clamp date within selected period
+    const handleStartDateChange = (value: string) => {
+      if (selectedPeriod) {
+        // Clamp to period bounds
+        if (value < selectedPeriod.startDate) value = selectedPeriod.startDate;
+        if (value > selectedPeriod.endDate) value = selectedPeriod.endDate;
+        if (reconEndDate && value > reconEndDate) value = reconEndDate;
+      }
+      setReconStartDate(value);
+    };
+    
+    const handleEndDateChange = (value: string) => {
+      if (selectedPeriod) {
+        // Clamp to period bounds
+        if (value < selectedPeriod.startDate) value = selectedPeriod.startDate;
+        if (value > selectedPeriod.endDate) value = selectedPeriod.endDate;
+        if (reconStartDate && value < reconStartDate) value = reconStartDate;
+      }
+      setReconEndDate(value);
     };
 
     return (
@@ -1659,7 +1693,9 @@ export default function SessionsPage() {
               <Input 
                 type="date" 
                 value={reconStartDate} 
-                onChange={(e) => setReconStartDate(e.target.value)}
+                onChange={(e) => handleStartDateChange(e.target.value)}
+                min={selectedPeriod?.startDate}
+                max={selectedPeriod?.endDate}
                 data-testid="input-recon-start-date"
               />
             </div>
@@ -1668,7 +1704,9 @@ export default function SessionsPage() {
               <Input 
                 type="date" 
                 value={reconEndDate} 
-                onChange={(e) => setReconEndDate(e.target.value)}
+                onChange={(e) => handleEndDateChange(e.target.value)}
+                min={selectedPeriod?.startDate}
+                max={selectedPeriod?.endDate}
                 data-testid="input-recon-end-date"
               />
             </div>
@@ -1680,8 +1718,11 @@ export default function SessionsPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Practices</SelectItem>
-                  <SelectItem value="DPP">DPP</SelectItem>
-                  <SelectItem value="IDP">IDP</SelectItem>
+                  {uniquePractices.map((practice) => (
+                    <SelectItem key={practice} value={practice}>
+                      {practice}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
