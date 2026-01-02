@@ -932,7 +932,9 @@ export default function SessionsPage() {
                   <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Practitioner</th>
                   <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Period</th>
                   <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Status</th>
-                  <th className="h-12 px-4 text-right align-middle font-medium text-muted-foreground">Amount</th>
+                  <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Amount</th>
+                  <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Discount</th>
+                  <th className="h-12 px-4 text-right align-middle font-medium text-muted-foreground">Total</th>
                   {canMarkAsInvoiced && (
                     <th className="h-12 px-4 text-center align-middle font-medium text-muted-foreground">Actions</th>
                   )}
@@ -987,15 +989,18 @@ export default function SessionsPage() {
                         {session.status.charAt(0).toUpperCase() + session.status.slice(1)}
                       </span>
                     </td>
-                    <td className="p-4 align-middle text-right font-medium">
-                      {session.finalPrice !== session.totalPrice ? (
-                        <div className="flex flex-col items-end">
-                          <span>R {session.finalPrice}</span>
-                          <span className="text-xs text-muted-foreground line-through">R {session.totalPrice}</span>
-                        </div>
+                    <td className="p-4 align-middle text-left font-medium">
+                      R {session.totalPrice.toFixed(2)}
+                    </td>
+                    <td className="p-4 align-middle text-left font-medium text-destructive">
+                      {session.discountPercent && session.discountPercent > 0 ? (
+                        <span>-{session.discountPercent}% (R {((session.totalPrice * session.discountPercent) / 100).toFixed(2)})</span>
                       ) : (
-                        <span>R {session.totalPrice}</span>
+                        <span className="text-muted-foreground">-</span>
                       )}
+                    </td>
+                    <td className="p-4 align-middle text-right font-bold text-primary">
+                      R {session.finalPrice.toFixed(2)}
                     </td>
                     {canMarkAsInvoiced && (
                       <td className="p-4 align-middle text-center">
