@@ -49,7 +49,7 @@ export default function LoginPage() {
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <CardTitle className="text-2xl font-bold text-primary" data-testid="text-login-title">
-            BioKinetics Pro
+            BioBillingPro
           </CardTitle>
           <CardDescription>
             Sign in to your account to continue

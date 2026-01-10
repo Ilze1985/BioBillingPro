@@ -33,7 +33,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
               <span className="text-primary-foreground">B</span>
             </div>
-            <span>BioKinetics<span className="text-primary">Pro</span></span>
+            <span>BioBilling<span className="text-primary">Pro</span></span>
           </div>
         </div>
         

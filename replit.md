@@ -1,8 +1,8 @@
-# BioKinetics Pro
+# BioBillingPro
 
 ## Overview
 
-BioKinetics Pro is a practice management application designed for biokineticists. It enables session tracking, patient management, billing code management, and revenue reporting. The application follows a full-stack TypeScript architecture with a React frontend and Express backend, using PostgreSQL for data persistence.
+BioBillingPro is a practice management application designed for biokineticists. It enables session tracking, patient management, billing code management, and revenue reporting. The application follows a full-stack TypeScript architecture with a React frontend and Express backend, using PostgreSQL for data persistence.
 
 ## User Preferences
 
