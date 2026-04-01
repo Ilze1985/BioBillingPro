@@ -11,6 +11,7 @@ Preferred communication style: Simple, everyday language.
 ## System Architecture
 
 ### Frontend Architecture
+
 - **Framework**: React 18 with TypeScript
 - **Routing**: Wouter (lightweight React router)
 - **State Management**: TanStack React Query for server state, Zustand for client state
@@ -19,20 +20,23 @@ Preferred communication style: Simple, everyday language.
 - **Build Tool**: Vite
 
 The frontend is a single-page application with four main pages:
+
 - Dashboard (revenue stats and charts using Recharts)
 - Sessions (session capture and management)
 - Patients (patient records)
 - Admin (user management, billing codes, data export)
 
 ### Backend Architecture
+
 - **Framework**: Express.js with TypeScript
 - **Database ORM**: Drizzle ORM with PostgreSQL
-- **API Pattern**: RESTful JSON API under `/api/*` routes
+- **API Pattern**: RESTful JSON API under `/api/`* routes
 - **File Uploads**: Multer for Excel file imports
 
 The server handles all API routes in `server/routes.ts` and uses a storage abstraction layer in `server/storage.ts` for database operations.
 
 ### Data Storage
+
 - **Database**: PostgreSQL accessed via Drizzle ORM
 - **Schema Location**: `shared/schema.ts` contains all table definitions and Zod validation schemas
 - **Core Entities**:
@@ -42,22 +46,27 @@ The server handles all API routes in `server/routes.ts` and uses a storage abstr
   - Sessions (appointment records linking practitioners, patients, and billing codes)
 
 ### Development vs Production
+
 - Development: Vite dev server with HMR, Express API runs concurrently
 - Production: Vite builds static assets to `dist/public`, Express serves them via `server/static.ts`
 
 ## External Dependencies
 
 ### Database
+
 - PostgreSQL database (connection via `DATABASE_URL` environment variable)
 - Drizzle Kit for schema migrations (`npm run db:push`)
 
 ### Third-Party Services
+
 - None currently integrated, though the build script includes allowlisted dependencies for future integrations (Stripe, OpenAI, Nodemailer, etc.)
 
 ### Key NPM Packages
+
 - `drizzle-orm` / `drizzle-zod`: Database ORM and schema validation
 - `@tanstack/react-query`: Async state management
 - `xlsx`: Excel file parsing for billing code imports
 - `date-fns`: Date formatting and manipulation
 - `recharts`: Dashboard charts
 - Full shadcn/ui component suite via Radix UI primitives
+

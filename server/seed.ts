@@ -1,3 +1,4 @@
+import bcrypt from "bcrypt";
 import { storage } from "./storage";
 import { log } from "./index";
 
@@ -16,14 +17,14 @@ export async function seedDatabase() {
     const admin = await storage.createUser({
       name: "Dr. Sarah Smith",
       email: "sarah@bio.com",
-      password: "admin123",
+      password: await bcrypt.hash("admin123", 10),
       role: "admin"
     });
 
     const practitioner = await storage.createUser({
       name: "John Doe",
       email: "john@bio.com",
-      password: "practitioner123",
+      password: await bcrypt.hash("practitioner123", 10),
       role: "practitioner"
     });
 
