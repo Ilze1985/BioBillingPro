@@ -28,7 +28,7 @@ import {
   type InsertAuthSession,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, and, ne, lt } from "drizzle-orm";
+import { eq, desc, and, ne, lt, asc } from "drizzle-orm";
 
 export interface IStorage {
   // Users
@@ -253,7 +253,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getAllFinancialPeriods(): Promise<FinancialPeriod[]> {
-    return await db.select().from(financialPeriods);
+    return await db
+      .select()
+      .from(financialPeriods)
+      .orderBy(asc(financialPeriods.startDate));
   }
 
   async createFinancialPeriod(insertPeriod: InsertFinancialPeriod): Promise<FinancialPeriod> {

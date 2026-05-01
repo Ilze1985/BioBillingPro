@@ -6,7 +6,7 @@ import {
   useDeleteUser, useDeletePatient, useDeleteBillingCode, useDeleteSession, useDeleteFinancialPeriod, useDeletePopulationGroup,
   useUpdateUser, useUpdatePatient, useUpdateBillingCode, useUpdateFinancialPeriod, useUpdatePopulationGroup,
   useCreateUser, useCreatePatient, useCreateBillingCode, useCreateFinancialPeriod, useCreatePopulationGroup,
-  useImportBillingCodes,
+  useImportBillingCodes, useImportFinancialPeriods,
   type User, type Patient, type BillingCode, type BillingType, type FinancialPeriod, type PopulationGroup
 } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -63,9 +63,11 @@ export default function AdminPage() {
   const createFinancialPeriodMutation = useCreateFinancialPeriod();
   const createPopulationGroupMutation = useCreatePopulationGroup();
   const importBillingCodesMutation = useImportBillingCodes();
+  const importFinancialPeriodsMutation = useImportFinancialPeriods();
 
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const periodFileInputRef = useRef<HTMLInputElement>(null);
   const restoreInputRef = useRef<HTMLInputElement>(null);
   const [isBackingUp, setIsBackingUp] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
@@ -301,9 +303,15 @@ export default function AdminPage() {
   const handleUpdatePeriod = async () => {
     if (!editPeriodDialog) return;
     try {
+      const parsedYear = parseInt(formData.year || '', 10);
+      if (!Number.isInteger(parsedYear)) {
+        toast({ title: "Error", description: "Year must be a valid number.", variant: "destructive" });
+        return;
+      }
       await updateFinancialPeriodMutation.mutateAsync({
         id: editPeriodDialog.id,
         data: { 
+          year: parsedYear,
           name: formData.name,
           startDate: formData.startDate,
           endDate: formData.endDate
@@ -318,7 +326,13 @@ export default function AdminPage() {
 
   const handleCreatePeriod = async () => {
     try {
+      const parsedYear = parseInt(formData.year || '', 10);
+      if (!Number.isInteger(parsedYear)) {
+        toast({ title: "Error", description: "Year must be a valid number.", variant: "destructive" });
+        return;
+      }
       await createFinancialPeriodMutation.mutateAsync({
+        year: parsedYear,
         name: formData.name,
         startDate: formData.startDate,
         endDate: formData.endDate
@@ -384,6 +398,35 @@ export default function AdminPage() {
     }
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
+    }
+  };
+
+  const handleFinancialPeriodFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const result = await importFinancialPeriodsMutation.mutateAsync(file);
+      toast({
+        title: "Import Successful",
+        description: result.message
+      });
+      if (result.errors && result.errors.length > 0) {
+        console.log('Financial period import errors:', result.errors);
+      }
+      if (result.warnings && result.warnings.length > 0) {
+        console.log('Financial period import warnings:', result.warnings);
+      }
+    } catch (error) {
+      toast({
+        title: "Import Failed",
+        description: error instanceof Error ? error.message : "Failed to import financial periods.",
+        variant: "destructive"
+      });
+    }
+
+    if (periodFileInputRef.current) {
+      periodFileInputRef.current.value = '';
     }
   };
 
@@ -703,7 +746,7 @@ export default function AdminPage() {
                   <FileSpreadsheet className="h-8 w-8 text-muted-foreground" />
                   <div>
                     <p className="text-sm font-medium">Excel Import Format</p>
-                    <p className="text-xs text-muted-foreground">Your Excel file should have columns: Code, Description, Price, Type (medical_aid or private)</p>
+                    <p className="text-xs text-muted-foreground">Your Excel file should have columns: Code, Description, Price, Type (medical_aid or private), Frequency (weekly or monthly)</p>
                   </div>
                 </div>
               </div>
@@ -828,16 +871,46 @@ export default function AdminPage() {
                 <CardTitle>Financial Periods</CardTitle>
                 <CardDescription>Define financial periods for reporting and filtering.</CardDescription>
               </div>
-              <Button className="gap-2" onClick={() => { setFormData({}); setNewPeriodDialog(true); }} data-testid="button-add-period">
-                <Plus className="h-4 w-4" />
-                Add Period
-              </Button>
+              <div className="flex gap-2">
+                <input
+                  type="file"
+                  ref={periodFileInputRef}
+                  accept=".xlsx,.xls,.csv"
+                  onChange={handleFinancialPeriodFileUpload}
+                  className="hidden"
+                  data-testid="input-file-import-periods"
+                />
+                <Button
+                  variant="outline"
+                  className="gap-2"
+                  onClick={() => periodFileInputRef.current?.click()}
+                  disabled={importFinancialPeriodsMutation.isPending}
+                  data-testid="button-import-periods"
+                >
+                  <Upload className="h-4 w-4" />
+                  {importFinancialPeriodsMutation.isPending ? 'Importing...' : 'Import from Excel'}
+                </Button>
+                <Button className="gap-2" onClick={() => { setFormData({ year: String(new Date().getFullYear()) }); setNewPeriodDialog(true); }} data-testid="button-add-period">
+                  <Plus className="h-4 w-4" />
+                  Add Period
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
+              <div className="mb-4 p-4 bg-muted/50 rounded-lg border border-dashed">
+                <div className="flex items-center gap-3">
+                  <FileSpreadsheet className="h-8 w-8 text-muted-foreground" />
+                  <div>
+                    <p className="text-sm font-medium">Excel Import Format</p>
+                    <p className="text-xs text-muted-foreground">Your Excel file should have columns: Year, Period Name, Period Start, Period End</p>
+                  </div>
+                </div>
+              </div>
               <div className="rounded-md border">
                 <table className="w-full caption-bottom text-sm">
                   <thead className="[&_tr]:border-b">
                     <tr className="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted">
+                      <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Year</th>
                       <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Name</th>
                       <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Start Date</th>
                       <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">End Date</th>
@@ -847,6 +920,7 @@ export default function AdminPage() {
                   <tbody className="[&_tr:last-child]:border-0">
                     {financialPeriods.map((period) => (
                       <tr key={period.id} className="border-b transition-colors hover:bg-muted/50" data-testid={`row-period-${period.id}`}>
+                        <td className="p-4 align-middle">{period.year}</td>
                         <td className="p-4 align-middle font-medium">{period.name}</td>
                         <td className="p-4 align-middle">{period.startDate}</td>
                         <td className="p-4 align-middle">{period.endDate}</td>
@@ -857,6 +931,7 @@ export default function AdminPage() {
                             className="h-8 w-8"
                             onClick={() => { 
                               setFormData({ 
+                                year: String(period.year),
                                 name: period.name,
                                 startDate: period.startDate,
                                 endDate: period.endDate
@@ -1356,6 +1431,10 @@ export default function AdminPage() {
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
+              <Label htmlFor="year">Year</Label>
+              <Input id="year" type="number" value={formData.year || ''} onChange={(e) => setFormData({ ...formData, year: e.target.value })} data-testid="input-edit-period-year" />
+            </div>
+            <div className="grid gap-2">
               <Label htmlFor="name">Period Name</Label>
               <Input id="name" value={formData.name || ''} onChange={(e) => setFormData({ ...formData, name: e.target.value })} placeholder="e.g. FY 2024/2025" data-testid="input-edit-period-name" />
             </div>
@@ -1382,6 +1461,10 @@ export default function AdminPage() {
             <DialogDescription>Create a new financial period for reporting.</DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="new-year">Year</Label>
+              <Input id="new-year" type="number" value={formData.year || ''} onChange={(e) => setFormData({ ...formData, year: e.target.value })} data-testid="input-new-period-year" />
+            </div>
             <div className="grid gap-2">
               <Label htmlFor="name">Period Name</Label>
               <Input id="name" value={formData.name || ''} onChange={(e) => setFormData({ ...formData, name: e.target.value })} placeholder="e.g. FY 2024/2025" data-testid="input-new-period-name" />

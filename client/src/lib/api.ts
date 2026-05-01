@@ -66,6 +66,7 @@ export interface EnrichedSession extends Session {
 
 export interface FinancialPeriod {
   id: number;
+  year: number;
   name: string;
   startDate: string;
   endDate: string;
@@ -106,6 +107,48 @@ export interface MonthlyBillingStatement {
   sentDate: string | null;
   createdAt: Date | null;
   updatedAt: Date | null;
+}
+
+async function getApiErrorMessage(response: Response, fallbackMessage: string): Promise<string> {
+  const contentType = response.headers.get('content-type') || '';
+
+  if (contentType.includes('application/json')) {
+    try {
+      const errorPayload = await response.json();
+      if (errorPayload && typeof errorPayload.message === 'string' && errorPayload.message.trim()) {
+        return errorPayload.message;
+      }
+    } catch {
+      // Fall through to text parsing when JSON parsing fails.
+    }
+  }
+
+  try {
+    const rawBody = await response.text();
+    if (rawBody && rawBody.trim()) {
+      const compactBody = rawBody.replace(/\s+/g, ' ').trim().slice(0, 200);
+      return `${fallbackMessage} (non-JSON response: ${compactBody})`;
+    }
+  } catch {
+    // Ignore and return fallback.
+  }
+
+  return fallbackMessage;
+}
+
+async function parseApiJson<T>(response: Response, fallbackMessage: string): Promise<T> {
+  const contentType = response.headers.get('content-type') || '';
+  if (!contentType.includes('application/json')) {
+    const rawBody = await response.text();
+    const compactBody = rawBody.replace(/\s+/g, ' ').trim().slice(0, 200);
+    throw new Error(`${fallbackMessage} (received non-JSON response: ${compactBody || 'empty body'})`);
+  }
+
+  try {
+    return (await response.json()) as T;
+  } catch {
+    throw new Error(`${fallbackMessage} (invalid JSON response body)`);
+  }
 }
 
 // API Functions
@@ -224,18 +267,21 @@ async function deleteBillingCode(id: number): Promise<void> {
   if (!res.ok) throw new Error('Failed to delete billing code');
 }
 
-async function importBillingCodes(file: File): Promise<{ message: string; imported: number; errors?: string[] }> {
+async function importBillingCodes(file: File): Promise<{ message: string; imported: number; errors?: string[]; warnings?: string[] }> {
   const formData = new FormData();
   formData.append('file', file);
   const res = await fetch('/api/billing-codes/import', {
     method: 'POST',
+    credentials: 'include',
     body: formData
   });
   if (!res.ok) {
-    const error = await res.json();
-    throw new Error(error.message || 'Failed to import billing codes');
+    throw new Error(await getApiErrorMessage(res, 'Failed to import billing codes'));
   }
-  return res.json();
+  return parseApiJson<{ message: string; imported: number; errors?: string[]; warnings?: string[] }>(
+    res,
+    'Failed to import billing codes'
+  );
 }
 
 async function updateSession(id: number, data: Partial<Session>): Promise<Session> {
@@ -314,6 +360,23 @@ async function updateFinancialPeriod(id: number, data: Partial<FinancialPeriod>)
 async function deleteFinancialPeriod(id: number): Promise<void> {
   const res = await fetch(`/api/financial-periods/${id}`, { method: 'DELETE' });
   if (!res.ok) throw new Error('Failed to delete financial period');
+}
+
+async function importFinancialPeriods(file: File): Promise<{ message: string; imported: number; errors?: string[]; warnings?: string[] }> {
+  const formData = new FormData();
+  formData.append('file', file);
+  const res = await fetch('/api/financial-periods/import', {
+    method: 'POST',
+    credentials: 'include',
+    body: formData
+  });
+  if (!res.ok) {
+    throw new Error(await getApiErrorMessage(res, 'Failed to import financial periods'));
+  }
+  return parseApiJson<{ message: string; imported: number; errors?: string[]; warnings?: string[] }>(
+    res,
+    'Failed to import financial periods'
+  );
 }
 
 async function fetchPopulationGroups(): Promise<PopulationGroup[]> {
@@ -587,6 +650,17 @@ export function useDeleteFinancialPeriod() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: deleteFinancialPeriod,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['financialPeriods'] });
+      queryClient.invalidateQueries({ queryKey: ['sessions'] });
+    },
+  });
+}
+
+export function useImportFinancialPeriods() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: importFinancialPeriods,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['financialPeriods'] });
       queryClient.invalidateQueries({ queryKey: ['sessions'] });

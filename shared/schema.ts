@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, timestamp, pgEnum, varchar } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, timestamp, pgEnum } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -19,6 +19,7 @@ export const practiceNameEnum = pgEnum('practice_name', ['DPP', 'IDP']);
 
 export const financialPeriods = pgTable("financial_periods", {
   id: serial("id").primaryKey(),
+  year: integer("year").notNull().default(0),
   name: text("name").notNull(),
   startDate: text("start_date").notNull(),
   endDate: text("end_date").notNull(),

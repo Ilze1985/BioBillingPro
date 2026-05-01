@@ -22,6 +22,51 @@ const upload = multer({
   limits: { fileSize: 5 * 1024 * 1024 }
 });
 
+const toIsoDateString = (date: Date): string => date.toISOString().split('T')[0];
+
+const parseExcelDateToIso = (value: unknown): string | null => {
+  if (value === undefined || value === null || value === '') {
+    return null;
+  }
+
+  if (value instanceof Date && !isNaN(value.getTime())) {
+    return toIsoDateString(value);
+  }
+
+  if (typeof value === 'number') {
+    if (!Number.isFinite(value) || value <= 0) {
+      return null;
+    }
+
+    // Excel serial dates are days since 1899-12-30 in modern spreadsheet systems.
+    const excelEpochUtcMs = Date.UTC(1899, 11, 30);
+    const millisPerDay = 24 * 60 * 60 * 1000;
+    const date = new Date(excelEpochUtcMs + Math.round(value * millisPerDay));
+
+    if (isNaN(date.getTime())) {
+      return null;
+    }
+
+    return toIsoDateString(date);
+  }
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+
+    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+      return trimmed;
+    }
+
+    const parsed = new Date(trimmed);
+    if (!isNaN(parsed.getTime())) {
+      return toIsoDateString(parsed);
+    }
+  }
+
+  return null;
+};
+
 export async function registerRoutes(
   httpServer: Server,
   app: Express
@@ -316,14 +361,22 @@ export async function registerRoutes(
       const worksheet = workbook.Sheets[sheetName];
       const data = XLSX.utils.sheet_to_json(worksheet) as Record<string, unknown>[];
 
-      const codes: Array<{ code: string; description: string; price: number; billingType: 'medical_aid' | 'private' }> = [];
+      const codes: Array<{
+        code: string;
+        description: string;
+        price: number;
+        billingType: 'medical_aid' | 'private';
+        billingFrequency: 'weekly' | 'monthly';
+      }> = [];
       const errors: string[] = [];
+      const warnings: string[] = [];
 
       data.forEach((row, index) => {
         const code = row['Code'] || row['code'] || row['CODE'];
         const description = row['Description'] || row['description'] || row['DESCRIPTION'];
         const price = row['Price'] || row['price'] || row['PRICE'] || row['Amount'] || row['amount'];
         const billingType = row['Type'] || row['type'] || row['TYPE'] || row['Billing Type'] || row['billing_type'];
+        const frequency = row['Frequency'] || row['frequency'] || row['FREQUENCY'] || row['Billing Frequency'] || row['billing_frequency'];
 
         if (!code || !description || price === undefined) {
           errors.push(`Row ${index + 2}: Missing required fields (Code, Description, or Price)`);
@@ -346,11 +399,27 @@ export async function registerRoutes(
           }
         }
 
+        let parsedFrequency: 'weekly' | 'monthly' = 'monthly';
+        if (frequency === undefined || frequency === null || String(frequency).trim() === '') {
+          warnings.push(`Row ${index + 2}: Missing frequency; defaulted to monthly`);
+        } else {
+          const frequencyStr = String(frequency).toLowerCase().trim();
+          if (frequencyStr === 'weekly') {
+            parsedFrequency = 'weekly';
+          } else if (frequencyStr === 'monthly') {
+            parsedFrequency = 'monthly';
+          } else {
+            errors.push(`Row ${index + 2}: Invalid frequency value. Use weekly or monthly`);
+            return;
+          }
+        }
+
         codes.push({
           code: String(code).trim(),
           description: String(description).trim(),
           price: parsedPrice,
-          billingType: parsedType
+          billingType: parsedType,
+          billingFrequency: parsedFrequency
         });
       });
 
@@ -366,7 +435,8 @@ export async function registerRoutes(
       res.status(201).json({
         message: `Successfully imported ${createdCodes.length} billing codes`,
         imported: createdCodes.length,
-        errors: errors.length > 0 ? errors : undefined
+        errors: errors.length > 0 ? errors : undefined,
+        warnings: warnings.length > 0 ? warnings : undefined
       });
     } catch (error) {
       console.error('Import error:', error);
@@ -738,6 +808,106 @@ export async function registerRoutes(
     } catch (error) {
       res.status(500).json({ message: "Failed to delete financial period" });
     }
+  });
+
+  app.post("/api/financial-periods/import", requireAdmin, (req, res) => {
+    upload.single('file')(req, res, async (uploadError: unknown) => {
+      if (uploadError) {
+        console.error('Financial period upload error:', uploadError);
+        if (uploadError instanceof multer.MulterError) {
+          return res.status(400).json({
+            message: "Invalid upload",
+            details: uploadError.message
+          });
+        }
+        return res.status(400).json({ message: "Failed to process uploaded file" });
+      }
+
+      try {
+        if (!req.file) {
+          return res.status(400).json({ message: "No file uploaded" });
+        }
+
+        const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const data = XLSX.utils.sheet_to_json(worksheet) as Record<string, unknown>[];
+
+        const periods: Array<{ year: number; name: string; startDate: string; endDate: string }> = [];
+        const errors: string[] = [];
+        const warnings: string[] = [];
+
+        data.forEach((row, index) => {
+          const yearValue = row['Year'] ?? row['year'] ?? row['YEAR'];
+          const periodNameValue = row['Period Name'] ?? row['period name'] ?? row['period_name'] ?? row['Period'] ?? row['period'];
+          const periodStartValue = row['Period Start'] ?? row['period start'] ?? row['period_start'] ?? row['Start'] ?? row['start'];
+          const periodEndValue = row['Period End'] ?? row['period end'] ?? row['period_end'] ?? row['End'] ?? row['end'];
+
+          if (yearValue === undefined || periodNameValue === undefined || periodStartValue === undefined || periodEndValue === undefined) {
+            errors.push(`Row ${index + 2}: Missing required fields (Year, Period Name, Period Start, Period End)`);
+            return;
+          }
+
+          const parsedYear = typeof yearValue === 'number' ? yearValue : parseInt(String(yearValue).trim(), 10);
+          if (!Number.isInteger(parsedYear)) {
+            errors.push(`Row ${index + 2}: Year must be a valid number`);
+            return;
+          }
+
+          const parsedName = String(periodNameValue).trim();
+          if (!parsedName) {
+            errors.push(`Row ${index + 2}: Period Name must be a non-empty string`);
+            return;
+          }
+
+          const parsedStartDate = parseExcelDateToIso(periodStartValue);
+          const parsedEndDate = parseExcelDateToIso(periodEndValue);
+
+          if (!parsedStartDate || !parsedEndDate) {
+            errors.push(`Row ${index + 2}: Period Start and Period End must be valid dates`);
+            return;
+          }
+
+          const startDate = new Date(`${parsedStartDate}T00:00:00Z`);
+          const endDate = new Date(`${parsedEndDate}T00:00:00Z`);
+          if (endDate <= startDate) {
+            errors.push(`Row ${index + 2}: Period End must be after Period Start`);
+            return;
+          }
+
+          periods.push({
+            year: parsedYear,
+            name: parsedName,
+            startDate: parsedStartDate,
+            endDate: parsedEndDate
+          });
+        });
+
+        if (periods.length === 0) {
+          return res.status(400).json({
+            message: "No valid financial periods found in file",
+            errors
+          });
+        }
+
+        const createdPeriods = await Promise.all(
+          periods.map((period) => storage.createFinancialPeriod(period))
+        );
+
+        return res.status(201).json({
+          message: `Successfully imported ${createdPeriods.length} financial periods`,
+          imported: createdPeriods.length,
+          errors: errors.length > 0 ? errors : undefined,
+          warnings: warnings.length > 0 ? warnings : undefined
+        });
+      } catch (error) {
+        console.error('Financial period import error:', error);
+        return res.status(500).json({
+          message: "Failed to import financial periods",
+          details: error instanceof Error ? error.message : "Unknown import error"
+        });
+      }
+    });
   });
 
   // Population Groups (read: all authenticated, write: admin only)
@@ -1245,8 +1415,14 @@ export async function registerRoutes(
 
       const periodIdMap = new Map<number, number>();
       for (const period of financialPeriods || []) {
-        const { id, ...periodData } = period;
-        const newPeriod = await storage.createFinancialPeriod(periodData);
+        const { id, year, startDate, ...periodData } = period;
+        const fallbackYear = typeof year === 'number'
+          ? year
+          : (typeof startDate === 'string' ? parseInt(startDate.split('-')[0], 10) : new Date().getUTCFullYear());
+        const newPeriod = await storage.createFinancialPeriod({
+          ...periodData,
+          year: Number.isInteger(fallbackYear) ? fallbackYear : new Date().getUTCFullYear()
+        });
         periodIdMap.set(id, newPeriod.id);
       }
 
